@@ -1,0 +1,39 @@
+{
+	"schemaVersion": 1,
+	"id": "hunting",
+	"version": "${version}",
+	"name": "Realistic Hunting",
+	"description": "Realistic hunting: deer, moose, wild boar, bears and game birds that see, hear and smell you, scoped rifles with bullet drop and wind, and an x-ray shot report.",
+	"authors": [
+		"ulfendk"
+	],
+	"contact": {
+		"homepage": "https://ulfendk.github.io/minecraft-hunting/",
+		"sources": "https://github.com/ulfendk/minecraft-hunting",
+		"issues": "https://github.com/ulfendk/minecraft-hunting/issues"
+	},
+	"license": "MIT",
+	"icon": "assets/hunting/icon.png",
+	"environment": "*",
+	"entrypoints": {
+		"main": [
+			"dk.ulfen.hunting.RealisticHunting"
+		],
+		"client": [
+			"dk.ulfen.hunting.client.RealisticHuntingClient"
+		]
+	},
+	"depends": {
+		"fabricloader": ">=0.19.5",
+		"minecraft": "~26.3",
+		"java": ">=25",
+		"fabric-api": "*",
+		"geckolib": ">=5.5"
+	},
+	"mixins": [
+		{
+			"config": "hunting.client.mixins.json",
+			"environment": "client"
+		}
+	]
+}

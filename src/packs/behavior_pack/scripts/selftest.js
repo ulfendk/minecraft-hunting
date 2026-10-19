@@ -1,0 +1,107 @@
+import { ItemStack, system, world } from '@minecraft/server';
+import { ANIMALS, CALIBRES, ITEMS, ZONE_PRIORITY, ZONES } from './data.js';
+import { windAt } from './lib/ballistics.js';
+import { evaluate, toModel } from './lib/hitzones.js';
+import { getState, scaleOf, speciesOf, STATE } from './game.js';
+import { trace } from './shooting.js';
+import { applyHit } from './wounds.js';
+
+/** Model space (pixels) -> world, the inverse of toModel. */
+function toWorld(entity, a, p) {
+  const k = scaleOf(entity, a) / 16;
+  const r = (entity.getRotation().y * Math.PI) / 180;
+  const f = { x: -Math.sin(r), z: Math.cos(r) };
+  const right = { x: -Math.cos(r), z: -Math.sin(r) };
+  const pos = entity.location;
+  return {
+    x: pos.x - p[0] * k * right.x - p[2] * k * f.x,
+    y: pos.y + p[1] * k,
+    z: pos.z - p[0] * k * right.z - p[2] * k * f.z,
+  };
+}
+
+/** Centre of the first organ box of a zone, in model space. */
+function organCentre(model, zone) {
+  const o = model.organs.find((x) => x[3] === zone);
+  if (!o) return null;
+  const [m, min, max] = o;
+  const c = [0, 1, 2].map((i) => (min[i] + max[i]) / 2);
+  // m maps model -> box space and is rigid; invert: p = R^T (c - t).
+  const t = [m[3], m[7], m[11]];
+  const v = [c[0] - t[0], c[1] - t[1], c[2] - t[2]];
+  return [m[0] * v[0] + m[4] * v[1] + m[8] * v[2], m[1] * v[0] + m[5] * v[1] + m[9] * v[2], m[2] * v[0] + m[6] * v[1] + m[10] * v[2]];
+}
+
+/**
+ * Used by tools/bds-test.sh. Message = space-separated expected entity ids. Checks that every
+ * animal and item exists, that the hit zones classify shots correctly, and that a real traced
+ * rifle shot through a summoned deer's heart is reported as a heart hit and drops it.
+ */
+export function selfTest(message) {
+  const expected = message.split(/\s+/).filter(Boolean);
+  const fail = [];
+  const counts = {};
+  const dim = world.getDimension('overworld');
+  for (const e of dim.getEntities()) {
+    if (e.typeId.startsWith('hunting:')) counts[e.typeId] = (counts[e.typeId] ?? 0) + 1;
+  }
+  for (const id of expected) if (!counts[`hunting:${id}`]) fail.push(`missing ${id}`);
+  for (const id of ITEMS) {
+    try {
+      new ItemStack(id, 1);
+    } catch {
+      fail.push(`item ${id}`);
+    }
+  }
+  console.log(`[Realistic Hunting] selftest found ${JSON.stringify(counts)}`);
+
+  // Pure hit-zone checks for every species: broadside through the heart, a leg, over the back.
+  const c308 = CALIBRES.c308;
+  for (const a of ANIMALS.filter((x) => x.game)) {
+    const m = a.hitModel;
+    const heart = organCentre(m, 'heart');
+    const shot = (o, d) => evaluate({ model: m, zones: ZONES, priority: ZONE_PRIORITY, o, d, energy: c308.energy, penetration: c308.penetration, cmPerPx: 6.25 * (a.scale ?? 1), minEnergy: a.game.minEnergy });
+    const fromLeft = shot([heart[0] + 60, heart[1], heart[2]], [-1, 0, 0]);
+    if (!fromLeft.zones.some((z) => z.zone === 'heart')) fail.push(`${a.id}: broadside heart shot missed the heart (${fromLeft.zones.map((z) => z.zone)})`);
+    if (fromLeft.fate === 'none' || fromLeft.fate === 'wound') fail.push(`${a.id}: heart shot not lethal (${fromLeft.fate})`);
+    const over = shot([heart[0] + 60, m.bounds[1][1] + 8, heart[2]], [-1, 0, 0]);
+    if (over.hit) fail.push(`${a.id}: shot over the back hit ${over.zones.map((z) => z.zone)}`);
+  }
+
+  // Wind is deterministic.
+  const w = windAt(123456);
+  if (!(w.speed >= 0 && w.speed <= 10) || windAt(123456).x !== w.x) fail.push('wind');
+
+  // A real traced shot through a deer standing in the world.
+  const deer = dim.getEntities({ type: 'hunting:white_tailed_deer' }).find((e) => getState(e) === STATE.calm);
+  if (!deer) fail.push('no deer for the shot test');
+  else {
+    const a = speciesOf(deer);
+    if (deer.getComponent('minecraft:is_baby')) deer.triggerEvent('hunting:grow_up');
+    system.runTimeout(() => {
+      try {
+        const heart = toWorld(deer, a, organCentre(a.hitModel, 'heart'));
+        const side = toWorld(deer, a, [organCentre(a.hitModel, 'heart')[0] + 16 * 12, organCentre(a.hitModel, 'heart')[1], organCentre(a.hitModel, 'heart')[2]]);
+        const d = { x: heart.x - side.x, y: heart.y - side.y, z: heart.z - side.z };
+        const len = Math.hypot(d.x, d.y, d.z);
+        const dir = { x: d.x / len, y: d.y / len, z: d.z / len };
+        // Bullets fly with drop and wind; a still-air .308 at 12 m drops a millimetre or two.
+        const hit = trace(dim, side, dir, { ...c308, id: 'c308' }, { x: 0, z: 0, speed: 0 }, undefined);
+        if (hit.kind !== 'game' || hit.entity.id !== deer.id) fail.push(`traced shot did not hit the deer (${hit.kind})`);
+        else {
+          if (!hit.report.zones.some((z) => z.zone === 'heart')) fail.push(`traced shot zones ${hit.report.zones.map((z) => z.zone)}`);
+          const fakePlayer = { id: 'selftest', location: side, sendMessage() {}, onScreenDisplay: { setActionBar() {} } };
+          applyHit(deer, a, { ...hit.report, fate: 'kill' }, fakePlayer, 1);
+        }
+      } catch (e) {
+        fail.push(`shot test threw ${e}`);
+      }
+    }, 2);
+    system.runTimeout(() => {
+      if (deer.isValid && getState(deer) !== STATE.carcass) fail.push('deer did not become a carcass');
+    }, 8);
+  }
+  system.runTimeout(() => {
+    console.log(fail.length ? `[Realistic Hunting] selftest FAIL: ${fail.join('; ')}` : '[Realistic Hunting] selftest PASS');
+  }, 12);
+}

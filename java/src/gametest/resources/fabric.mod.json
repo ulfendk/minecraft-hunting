@@ -1,0 +1,18 @@
+{
+	"schemaVersion": 1,
+	"id": "hunting-test",
+	"version": "1.0.0",
+	"name": "Realistic Hunting tests",
+	"environment": "*",
+	"entrypoints": {
+		"fabric-gametest": [
+			"dk.ulfen.hunting.test.HuntingGameTests"
+		],
+		"fabric-client-gametest": [
+			"dk.ulfen.hunting.test.HuntingClientGameTest"
+		]
+	},
+	"depends": {
+		"hunting": "*"
+	}
+}

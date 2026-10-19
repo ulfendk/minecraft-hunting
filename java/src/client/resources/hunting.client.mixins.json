@@ -1,0 +1,9 @@
+{
+	"required": true,
+	"package": "dk.ulfen.hunting.mixin.client",
+	"compatibilityLevel": "JAVA_21",
+	"client": ["AbstractClientPlayerMixin"],
+	"injectors": {
+		"defaultRequire": 1
+	}
+}

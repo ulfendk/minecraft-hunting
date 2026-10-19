@@ -1,0 +1,32 @@
+{
+  "format_version": "1.8.0",
+  "animations": {
+    "animation.hunting.common.look_at_target": {
+      "loop": true,
+      "bones": {
+        "head": {
+          "relative_to": {
+            "rotation": "entity"
+          },
+          "rotation": [
+            "query.target_x_rotation",
+            "query.target_y_rotation",
+            0.0
+          ]
+        }
+      }
+    },
+    "animation.hunting.projectile.move": {
+      "loop": true,
+      "bones": {
+        "body": {
+          "rotation": [
+            "-query.target_x_rotation",
+            "-query.target_y_rotation",
+            0.0
+          ]
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,26 @@
+{
+  "name": "minecraft-hunting",
+  "version": "0.1.0",
+  "description": "Realistic Hunting: a Minecraft Bedrock add-on and Java mod with deer, moose, boar, bears and game birds, scoped rifles, wind and an x-ray shot report",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "node tools/build.mjs",
+    "validate": "node tools/validate.mjs",
+    "package": "node tools/package.mjs",
+    "preview": "node tools/preview.mjs",
+    "all": "npm run build && npm run validate && npm run package",
+    "site": "node tools/site.mjs",
+    "test:server": "tools/bds-test.sh"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "license": "MIT",
+  "devDependencies": {
+    "@minecraft/server": "^2.0.0",
+    "@minecraft/server-ui": "^2.0.0",
+    "fflate": "^0.8.2",
+    "pngjs": "^7.0.0"
+  }
+}

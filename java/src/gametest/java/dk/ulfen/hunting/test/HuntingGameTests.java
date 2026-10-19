@@ -198,15 +198,18 @@ public class HuntingGameTests {
 
 	// ---------------------------------------------------------------- spearfishing
 
-	/** Fill a box (relative coordinates, inclusive) with water. */
+	/** Fill a box (relative coordinates, inclusive) with water, walled in with glass so it can't spill out. */
 	private static void pool(GameTestHelper helper, int x0, int y0, int z0, int x1, int y1, int z1) {
-		for (int x = x0; x <= x1; x++) for (int y = y0; y <= y1; y++) for (int z = z0; z <= z1; z++) helper.setBlock(new BlockPos(x, y, z), Blocks.WATER);
+		for (int x = x0 - 1; x <= x1 + 1; x++) for (int y = y0; y <= y1; y++) for (int z = z0 - 1; z <= z1 + 1; z++) {
+			boolean inside = x >= x0 && x <= x1 && z >= z0 && z <= z1;
+			helper.setBlock(new BlockPos(x, y, z), inside ? Blocks.WATER : Blocks.GLASS);
+		}
 	}
 
 	/** A sea bass in a pool swims about and is still in the water (and alive) three seconds later. */
 	@GameTest(maxTicks = 100)
 	public void fishStaysInWater(GameTestHelper helper) {
-		pool(helper, 1, 1, 1, 6, 4, 6);
+		pool(helper, 1, 1, 1, 6, 5, 6);
 		GameFish fish = (GameFish) helper.spawn(HuntingRegistry.ANIMALS.get("sea_bass"), new BlockPos(3, 2, 3));
 		helper.runAfterDelay(60, () -> {
 			if (!fish.isAlive() || fish.isCarcass()) throw fail(helper, "the fish died");

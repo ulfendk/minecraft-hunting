@@ -70,6 +70,10 @@ for f in build/behavior_pack/entities/*.json; do
   send summon "hunting:$id" $((x + 1)) $y $((z + 1))
   n=$((n + 1))
 done
+# The mini submarine in a pool of its own.
+send fill 46 -62 40 49 -60 43 water
+send summon hunting:mini_submarine 47 -61 41
+ids="$ids mini_submarine"
 send setblock 40 -60 40 hunting:camo_netting
 send setblock 42 -60 40 hunting:tree_stand
 send time set night

@@ -74,3 +74,18 @@ export function heldItem(player) {
     return undefined;
   }
 }
+
+const WATER = new Set(['minecraft:water', 'minecraft:flowing_water']);
+
+/** Is there water at this location (a water block, or a waterlogged one)? */
+export function waterAt(dimension, location) {
+  try {
+    const b = dimension.getBlock({ x: Math.floor(location.x), y: Math.floor(location.y), z: Math.floor(location.z) });
+    return !!b && (WATER.has(b.typeId) || b.isWaterlogged);
+  } catch {
+    return false;
+  }
+}
+
+/** Is the entity's head under water? */
+export const eyeInWater = (entity) => waterAt(entity.dimension, entity.getHeadLocation());

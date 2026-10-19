@@ -1,6 +1,7 @@
 package dk.ulfen.hunting.net;
 
 import dk.ulfen.hunting.HuntingRegistry;
+import dk.ulfen.hunting.entity.MiniSubmarine;
 import dk.ulfen.hunting.hunt.HuntingData;
 import dk.ulfen.hunting.hunt.Shooting;
 import dk.ulfen.hunting.item.RifleItem;
@@ -13,8 +14,9 @@ import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
 import net.minecraft.server.level.ServerPlayer;
 
 /**
- * Packets: the client asks to fire the scoped rifle (left click while aiming); the server
- * sends shot reports (x-ray flash, R opens the full report) and the journal contents.
+ * Packets: the client asks to fire the scoped rifle (left click while aiming) and sends the
+ * mini submarine's controls; the server sends shot reports (x-ray flash, R opens the full
+ * report) and the journal contents.
  */
 public final class HuntingNetwork {
 	private HuntingNetwork() {}
@@ -26,6 +28,22 @@ public final class HuntingNetwork {
 
 		@Override
 		public Type<FirePayload> type() {
+			return TYPE;
+		}
+	}
+
+	/**
+	 * Client -> server: the submarine pilot's controls, sent every tick while a key is held
+	 * (vertical -1/0/1, forward -1/0/1, and lights 1 when the lights key was pressed).
+	 */
+	public record SubControlPayload(int entityId, int vertical, int forward, int lights) implements CustomPacketPayload {
+		public static final Type<SubControlPayload> TYPE = new Type<>(HuntingRegistry.id("sub_control"));
+		public static final StreamCodec<RegistryFriendlyByteBuf, SubControlPayload> CODEC = StreamCodec.composite(
+			ByteBufCodecs.VAR_INT, SubControlPayload::entityId, ByteBufCodecs.VAR_INT, SubControlPayload::vertical,
+			ByteBufCodecs.VAR_INT, SubControlPayload::forward, ByteBufCodecs.VAR_INT, SubControlPayload::lights, SubControlPayload::new);
+
+		@Override
+		public Type<SubControlPayload> type() {
 			return TYPE;
 		}
 	}
@@ -56,6 +74,7 @@ public final class HuntingNetwork {
 
 	public static void register() {
 		PayloadTypeRegistry.serverboundPlay().register(FirePayload.TYPE, FirePayload.CODEC);
+		PayloadTypeRegistry.serverboundPlay().register(SubControlPayload.TYPE, SubControlPayload.CODEC);
 		PayloadTypeRegistry.clientboundPlay().register(ReportPayload.TYPE, ReportPayload.CODEC);
 		PayloadTypeRegistry.clientboundPlay().register(JournalPayload.TYPE, JournalPayload.CODEC);
 		ServerPlayNetworking.registerGlobalReceiver(FirePayload.TYPE, (payload, context) -> {
@@ -63,6 +82,12 @@ public final class HuntingNetwork {
 			// Only while actually aiming a rifle.
 			if (player.isUsingItem() && player.getUseItem().getItem() instanceof RifleItem rifle && HuntingData.FIREARMS.containsKey(rifle.firearm())) {
 				Shooting.fire(player, rifle.firearm());
+			}
+		});
+		ServerPlayNetworking.registerGlobalReceiver(SubControlPayload.TYPE, (payload, context) -> {
+			// Only the sub's pilot may drive it.
+			if (context.player().level().getEntity(payload.entityId()) instanceof MiniSubmarine sub && sub.getControllingPassenger() == context.player()) {
+				sub.applyInput(payload.vertical(), payload.forward(), payload.lights());
 			}
 		});
 	}

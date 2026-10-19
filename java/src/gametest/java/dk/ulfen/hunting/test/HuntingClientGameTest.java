@@ -44,6 +44,29 @@ public class HuntingClientGameTest implements FabricClientGameTest {
 				context.takeScreenshot("hunting_group_" + group);
 			}
 
+			// Under water: the fish and the mini submarine, then a ride in the sub.
+			if (only.isEmpty() || only.contains("underwater")) {
+				world.getServer().runCommand("kill @e[type=!player]");
+				world.getServer().runCommand("tp @p 0 -50 72 0 10");
+				context.waitTicks(20);
+				world.getServer().runCommand("fill -10 -61 70 10 -52 95 water");
+				world.getServer().runCommand("summon hunting:sea_bass -3 -57 80 {NoAI:1b,Rotation:[90f,0f]}");
+				world.getServer().runCommand("summon hunting:bluefin_tuna 2 -58 84 {NoAI:1b,Rotation:[90f,0f]}");
+				world.getServer().runCommand("summon hunting:porbeagle -2 -59 88 {NoAI:1b,Rotation:[60f,0f]}");
+				world.getServer().runCommand("summon hunting:mini_submarine 4 -59 78 {Rotation:[120f,0f]}");
+				world.getServer().runCommand("effect give @p night_vision 60 0 true");
+				world.getServer().runCommand("tp @p 0 -58 72 0 10");
+				context.waitTicks(40);
+				context.takeScreenshot("hunting_underwater");
+				world.getServer().runCommand("ride @p mount @e[type=hunting:mini_submarine,limit=1]");
+				world.getServer().runCommand("item replace entity @p hotbar.0 with hunting:harpoon_bolt 16");
+				context.waitTicks(30);
+				context.takeScreenshot("hunting_submarine_pilot");
+				world.getServer().runCommand("ride @p dismount");
+				world.getServer().runCommand("fill -10 -61 70 10 -52 95 air");
+				world.getServer().runCommand("fill -10 -61 70 10 -61 95 grass_block");
+			}
+
 			// Through the scope of a .308 at a deer 40 blocks away.
 			world.getServer().runCommand("kill @e[type=!player]");
 			world.getServer().runCommand("summon hunting:white_tailed_deer 0 -60 40 {NoAI:1b,Rotation:[90f,0f]}");

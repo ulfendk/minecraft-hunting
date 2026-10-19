@@ -12,5 +12,8 @@ export const guide = {
   pheasant: 'Runs through cover rather than flying, until it bursts up with a clatter of wings. Cocks have a red face and a copper body.',
   mallard: 'The familiar duck of ponds and rivers. Drakes have a green head. A duck call brings them in; shoot with a shotgun.',
   wild_turkey: 'A big, sharp-eyed bird of open woods. Toms fan their tails and gobble. Very hard to sneak up on: sit still and call.',
+  sea_bass: 'A silver schooling fish of coastal seas. Schools scatter at the first fright, so swim slowly. A speargun or harpoon brings one in; aim just behind the gill cover.',
+  bluefin_tuna: 'A torpedo-shaped giant of the deep, very fast and very strong. Put the bolt through the heart behind the gills, or it will tow you around on the line until it snaps.',
+  porbeagle: 'A stocky shark of cold and deep water. It hunts sea bass and other fish, and it will turn on a bleeding diver. Hunt it from a submarine, or keep your distance.',
   hunting_dog: 'A loyal companion. Tame it with venison, and blow a dog whistle near it to send it after the blood trail of a wounded animal. It also fetches shot birds.',
 };

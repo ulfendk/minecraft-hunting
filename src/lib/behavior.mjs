@@ -1,5 +1,6 @@
 // Animal spec -> Bedrock behavior-pack files (entity, spawn rules, loot table).
 import { NS } from './constants.mjs';
+import { KNIVES } from '../items.mjs';
 
 /** Hunting states, synced to clients as the hunting:state property (see scripts/senses.js). */
 export const STATE = { calm: 0, alert: 1, flee: 2, wounded: 3, carcass: 4 };
@@ -20,6 +21,17 @@ const BIOME_TAGS = {
   forest: 'forest',
   taiga: 'taiga',
   mountains: 'mountains',
+  // Several tags: all of them (cold oceans, not cold forests).
+  ocean: 'ocean',
+  deep_ocean: ['deep', 'ocean'],
+  lukewarm_ocean: ['lukewarm', 'ocean'],
+  cold_ocean: ['cold', 'ocean'],
+};
+
+const biomeTest = (b) => {
+  const tags = [BIOME_TAGS[b] ?? b].flat();
+  const test = (value) => ({ test: 'has_biome_tag', operator: '==', value });
+  return tags.length === 1 ? test(tags[0]) : { all_of: tags.map(test) };
 };
 
 /** Prefix vanilla items with minecraft: and our own with the namespace. */
@@ -434,11 +446,17 @@ function gameAnimal(a, components, groups, events, properties) {
     }
   }
   groups[`${NS}:alive`] = alive;
+  // A harpooned animal is held on the line (scripts/harpoon.js): the leash is the line, so it
+  // only pulls past most of a line's length and lets the script decide when it snaps.
+  components['minecraft:leashable'] = {
+    can_be_stolen: false,
+    presets: [{ spring_type: 'dampened', soft_distance: 16, hard_distance: 24, max_distance: 40 }],
+  };
   groups[`${NS}:carcass`] = {
     'minecraft:interact': {
       interactions: [{
         on_interact: {
-          filters: { test: 'has_equipment', subject: 'other', domain: 'hand', value: `${NS}:hunting_knife` },
+          filters: { any_of: KNIVES.map((k) => ({ test: 'has_equipment', subject: 'other', domain: 'hand', value: `${NS}:${k}` })) },
           event: `${NS}:field_dress`,
           target: 'self',
         },
@@ -447,6 +465,12 @@ function gameAnimal(a, components, groups, events, properties) {
       }],
     },
     'minecraft:timer': { looping: false, time: 1200, time_down_event: { event: `${NS}:rot`, target: 'self' } },
+    // A dead fish floats up to the surface.
+    ...(a.movement === 'swim' ? {
+      'minecraft:physics': { has_gravity: true },
+      'minecraft:buoyant': { base_buoyancy: 1.0, apply_gravity: true, simulate_waves: true, big_wave_probability: 0.03, big_wave_speed: 10.0, liquid_blocks: ['minecraft:water', 'minecraft:flowing_water'] },
+      'minecraft:breathable': { total_supply: 15, suffocate_time: 0, breathes_air: true, breathes_water: true },
+    } : {}),
   };
   groups[`${NS}:despawn`] = { 'minecraft:instant_despawn': {} };
   // Answering a call: walk over to where it came from (a lure marker left by scripts/gear.js).
@@ -577,7 +601,7 @@ function herd(a, s) {
 
 export function buildSpawnRules(a) {
   const conditions = (a.spawn ?? []).map((s) => {
-    const biomes = s.biomes.map((b) => ({ test: 'has_biome_tag', operator: '==', value: BIOME_TAGS[b] ?? b }));
+    const biomes = s.biomes.map(biomeTest);
     const cond = {
       'minecraft:spawns_on_surface': {},
       ...(s.blocks ? { 'minecraft:spawns_on_block_filter': s.blocks.map(itemId) } : {}),
@@ -591,7 +615,7 @@ export function buildSpawnRules(a) {
       delete cond['minecraft:spawns_on_surface'];
       delete cond['minecraft:brightness_filter'];
       cond['minecraft:spawns_underwater'] = {};
-      cond['minecraft:height_filter'] = { min: 40, max: 70 };
+      cond['minecraft:height_filter'] = { min: s.height?.[0] ?? 40, max: s.height?.[1] ?? 70 };
     }
     return cond;
   });

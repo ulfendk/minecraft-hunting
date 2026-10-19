@@ -1,4 +1,4 @@
-// Non-animal entities: the bow's arrow and invisible helpers.
+// Non-animal entities: the bow's arrow, the harpoons and invisible helpers.
 import { NS } from './lib/constants.mjs';
 import { weaponProjectiles } from './weapons.mjs';
 
@@ -15,10 +15,12 @@ export function buildProjectile(p) {
           on_hit: {
             impact_damage: { damage: p.damage, knockback: true },
             ...(p.effect ? { mob_effect: { effect: p.effect.effect, durationeasy: p.effect.ticks, durationnormal: p.effect.ticks, durationhard: p.effect.ticks, amplifier: p.effect.amplifier } } : {}),
-            remove_on_hit: {},
+            // Harpoons stick where they land and can be picked up again (scripts/harpoon.js).
+            ...(p.stick ? { stick_in_ground: { shake_time: 0 } } : { remove_on_hit: {} }),
           },
           power: p.power ?? 1.0,
           gravity: p.gravity ?? 0.04,
+          ...(p.liquidInertia ? { liquid_inertia: p.liquidInertia } : {}),
           ...(p.hitSound ? { hit_sound: p.hitSound } : {}),
           uncertainty_base: 4,
           uncertainty_multiplier: 0,
@@ -27,7 +29,8 @@ export function buildProjectile(p) {
         },
         'minecraft:physics': {},
         'minecraft:pushable': { is_pushable: false, is_pushable_by_piston: true },
-        'minecraft:despawn': { despawn_from_distance: { min_distance: 32, max_distance: 64 } },
+        // A thrown harpoon is a tool you want back: it stays until it is picked up.
+        ...(p.keep ? { 'minecraft:persistent': {} } : { 'minecraft:despawn': { despawn_from_distance: { min_distance: 32, max_distance: 64 } } }),
       },
     },
   };

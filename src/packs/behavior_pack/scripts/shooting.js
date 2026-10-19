@@ -1,10 +1,10 @@
-// Rifles, the shotgun and the compound bow.
+// Rifles, the shotgun, the compound bow, and what a harpoon does when it hits.
 //
 // Rifles: use (right-click / tap) raises the scope; use again fires. Tap sneak to change the
 // zoom, hold sneak to steady your aim and hold your breath (not for too long). Jump or switch
 // items to lower the scope. The bullet follows a real trajectory (drop, wind drift) and is
 // traced against blocks and against the animals' actual model shapes; game animals get a
-// full hit-zone evaluation and shot report.
+// full hit-zone evaluation and shot report. Firearms don't work under water.
 import { system, world } from '@minecraft/server';
 import { CALIBRES, FIREARMS, ZONE_PRIORITY, ZONES } from './data.js';
 import { energyAt, pointAt } from './lib/ballistics.js';
@@ -13,7 +13,8 @@ import { getState, hitModelOf, scaleOf, scopeCode, setScopeHud, speciesOf, STATE
 import { recordShot } from './report.js';
 import { gunshot, makeNoise } from './senses.js';
 import { applyHit } from './wounds.js';
-import { consumeOne, dist, findItem, heldItem, isCreative, norm, sub, wearSelected } from './util.js';
+import { consumeOne, dist, eyeInWater, findItem, heldItem, isCreative, norm, sub, wearSelected } from './util.js';
+import { harpoonStruck, POWER } from './harpoon.js';
 
 const FIREARM_IDS = Object.keys(FIREARMS);
 const scoped = new Map(); // player id -> { id, zoom, breath, shaky, sneakAt, sway: {x, y} }
@@ -190,7 +191,7 @@ export function trace(dimension, eye, dir, calibre, w, shooter) {
     const penetration = c.penetration * Math.sqrt(energy / c.energy);
     const report = evaluate({
       model, zones: ZONES, priority: ZONE_PRIORITY, o, d, energy, penetration, cmPerPx: 6.25 * k,
-      minEnergy: c.pellets ? a.game.minShotEnergy ?? 4 : c.id === 'arrow' ? 0 : a.game.minEnergy,
+      minEnergy: c.pellets ? a.game.minShotEnergy ?? 4 : c.projectile ? 0 : a.game.minEnergy,
       bigGame: a.game.class !== 'small',
     });
     if (report.hit) return { kind: 'game', entity: e, a, distance, energy, report };
@@ -246,6 +247,13 @@ export function fire(player, id) {
   const c = { ...CALIBRES[f.calibre], id: f.calibre };
   if ((cycleUntil.get(player.id) ?? 0) > now) {
     player.onScreenDisplay.setActionBar({ translate: 'hunting.hud.cycling' });
+    return;
+  }
+  // Under water a firearm is useless: the powder is wet and the bullet stops in a metre.
+  if (eyeInWater(player)) {
+    player.onScreenDisplay.setActionBar({ translate: 'hunting.hud.underwater_gun' });
+    player.playSound('random.click', { pitch: 0.5 });
+    lowerScope(player);
     return;
   }
   if (!isCreative(player)) {
@@ -308,17 +316,38 @@ function impactEffects(dim, eye, dir, c, w, hit) {
   } catch {}
 }
 
-// ---------------------------------------------------------------- bow
+// ---------------------------------------------------------------- bow and harpoons
 
-function arrowHit({ projectile, source, location, hitVector, getEntityHit }) {
+/** The calibre each of our projectiles is evaluated as. */
+const PROJECTILE_CALIBRE = { 'hunting:broadhead_arrow': 'arrow', 'hunting:harpoon_bolt': 'harpoon_bolt', 'hunting:thrown_harpoon': 'thrown_harpoon' };
+
+function projectileHit(event) {
+  const { projectile, source, location, hitVector } = event;
   let typeId;
   try { typeId = projectile.typeId; } catch { return; }
-  if (typeId !== 'hunting:broadhead_arrow') return;
-  const target = getEntityHit()?.entity;
-  const a = target && speciesOf(target);
-  if (!a || !source || source.typeId !== 'minecraft:player') return;
-  if (getState(target) === STATE.carcass) return;
-  const c = { ...CALIBRES.arrow, id: 'arrow' };
+  const calibre = PROJECTILE_CALIBRE[typeId];
+  if (!calibre) return;
+  const harpoon = typeId !== 'hunting:broadhead_arrow';
+  // A harpoon fired or thrown through the air is slow and weak (scripts/harpoon.js sets this).
+  let power = 1;
+  try { power = projectile.getDynamicProperty(POWER) ?? 1; } catch {}
+  const target = event.getEntityHit()?.entity;
+  if (!target || target.typeId === 'hunting:mini_submarine') return;
+  const a = speciesOf(target);
+  if (!a || !source || source.typeId !== 'minecraft:player') {
+    // Vanilla fish and squid: a plain hit.
+    if (harpoon && target && source) {
+      try { target.applyDamage(Math.round(6 * power * power), { cause: 'projectile', damagingEntity: source }); } catch {}
+      harpoonStruck(projectile, target, source, null);
+    }
+    return;
+  }
+  if (getState(target) === STATE.carcass) {
+    // Spearing a carcass (a dead fish floating off) lets you reel it in.
+    if (harpoon) harpoonStruck(projectile, target, source, null);
+    return;
+  }
+  const c = { ...CALIBRES[calibre], id: calibre };
   const dir = norm(hitVector);
   const k = scaleOf(target, a);
   let yaw = 0;
@@ -326,13 +355,15 @@ function arrowHit({ projectile, source, location, hitVector, getEntityHit }) {
   const m = toModel(target.location, yaw, k);
   const start = { x: location.x - dir.x * 3, y: location.y - dir.y * 3, z: location.z - dir.z * 3 };
   const o = m.point(start), d = m.dir(dir);
-  let report = evaluate({ model: hitModelOf(target, a), zones: ZONES, priority: ZONE_PRIORITY, o, d, energy: c.energy, penetration: c.penetration, cmPerPx: 6.25 * k, minEnergy: 0, bigGame: true });
+  const energy = c.energy * power * power;
+  let report = evaluate({ model: hitModelOf(target, a), zones: ZONES, priority: ZONE_PRIORITY, o, d, energy, penetration: c.penetration * power, cmPerPx: 6.25 * k, minEnergy: 0, bigGame: true });
   // The engine says it hit; our model says it slipped past: count it as a graze.
   if (!report.hit) report = { ...report, hit: true, zones: [{ zone: 'muscle', percent: 10 }], fate: 'wound', grade: 'unethical' };
   const distance = dist(source.location, location);
-  const record = recordShot(source, { species: a.id, distance, calibre: c.name, energy: c.energy, ...report });
+  const record = recordShot(source, { species: a.id, distance, calibre: c.name, energy, ...report });
   applyHit(target, a, report, source, record.id);
-  makeNoise(source, 10);
+  makeNoise(source, harpoon ? 6 : 10);
+  if (harpoon) harpoonStruck(projectile, target, source, report);
 }
 
 // ---------------------------------------------------------------- setup
@@ -353,7 +384,7 @@ export function setupShooting() {
   world.afterEvents.playerButtonInput.subscribe(({ player, button, newButtonState }) => {
     if (button === 'Jump' && newButtonState === 'Pressed') lowerScope(player);
   });
-  world.afterEvents.projectileHitEntity.subscribe(arrowHit);
+  world.afterEvents.projectileHitEntity.subscribe(projectileHit);
   world.afterEvents.playerLeave.subscribe(({ playerId }) => scoped.delete(playerId));
   system.runInterval(() => {
     const now = system.currentTick;

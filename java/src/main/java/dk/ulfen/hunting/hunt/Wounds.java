@@ -33,7 +33,7 @@ import org.jspecify.annotations.Nullable;
 /**
  * What a hit does to a game animal (the Java twin of scripts/wounds.js): drops it on the spot,
  * lets it run and bleed out, or leaves it wounded with a blood trail. A dead game animal stays
- * as a carcass until it is field dressed with a hunting knife.
+ * as a carcass until it is field dressed with a knife (the hunting:knives item tag).
  */
 public final class Wounds {
 	private record Drop(ResourceKey<Level> dimension, Vec3 at, long until, boolean dark) {}
@@ -48,7 +48,7 @@ public final class Wounds {
 
 	private static int dripEvery(String blood) {
 		return switch (blood) {
-			case "bright", "frothy" -> 10;
+			case "bright", "frothy", "gills" -> 10;
 			case "dark" -> 14;
 			case "gut" -> 24;
 			case "little" -> 40;
@@ -174,9 +174,9 @@ public final class Wounds {
 		};
 	}
 
-	/** Use a hunting knife on a carcass: meat, hide and the trophy. */
+	/** Use a knife on a carcass: meat, hide and the trophy. */
 	public static void fieldDress(GameAnimal carcass, ServerLevel level, Player player, ItemStack held) {
-		if (!held.is(HuntingRegistry.item("hunting_knife"))) {
+		if (!held.is(HuntingRegistry.KNIVES)) {
 			player.sendOverlayMessage(Component.translatable("hunting.dress.need_knife"));
 			return;
 		}
@@ -187,7 +187,7 @@ public final class Wounds {
 		boolean spoiled = player instanceof ServerPlayer sp && Journal.shotNotes(sp, carcass.shotId).contains("meat_damage");
 		for (Species.Loot l : s.loot()) {
 			int n = l.min() + level.getRandom().nextInt(l.max() - l.min() + 1);
-			if (spoiled && l.item().matches(".*(meat|venison|bird).*")) n /= 2;
+			if (spoiled && l.item().matches(".*(meat|venison|bird|fillet).*")) n /= 2;
 			if (baby) n = (int) Math.ceil(n / 3.0);
 			Item item = BuiltInRegistries.ITEM.getValue(Identifier.parse(l.item()));
 			if (n > 0) carcass.spawnAtLocation(level, new ItemStack(item, n));

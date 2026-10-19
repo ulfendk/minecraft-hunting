@@ -42,7 +42,7 @@ for (const a of animals) {
   let r = shot([heart[0] + 80, heart[1], heart[2]], [-1, 0, 0]);
   check('broadside heart', r.zones.some((z) => z.zone === 'heart') && ['kill', 'mortal'].includes(r.fate), r);
   r = shot([heart[0] + 60, heart[1] + 10, heart[2] - 60], n([-60, -10, 60]));
-  check('quartering away → heart', r.zones.some((z) => ['heart', 'lungs'].includes(z.zone)) && ['kill', 'mortal'].includes(r.fate), r);
+  check('quartering away → heart', r.zones.some((z) => ['heart', 'lungs', 'gills'].includes(z.zone)) && ['kill', 'mortal'].includes(r.fate), r);
   r = shot([heart[0] + 80, model.bounds[1][1] + 6, heart[2]], [-1, 0, 0]);
   check('over the back', !r.hit, r);
   if (leg) {

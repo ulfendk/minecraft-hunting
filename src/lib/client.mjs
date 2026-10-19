@@ -66,7 +66,7 @@ export function buildClientEntity(a, animNames, egg) {
     if (v.texture) textures[`v${i}`] = `textures/entity/${NS}/${a.id}_${v.texture}`;
   });
   const animations = Object.fromEntries(animNames.map((n) => [n, anim(a.id, n)]));
-  const hasHead = a.model.bones.some((b) => b.name === 'head');
+  const hasHead = !a.client?.noLook && a.model.bones.some((b) => b.name === 'head');
   if (hasHead) animations.look_at_target = 'animation.hunting.common.look_at_target';
   animations.move_controller = `controller.animation.hunting.${a.id}.move`;
   const animate = ['move_controller'];

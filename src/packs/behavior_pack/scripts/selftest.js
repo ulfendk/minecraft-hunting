@@ -1,5 +1,5 @@
 import { ItemStack, system, world } from '@minecraft/server';
-import { ANIMALS, CALIBRES, ITEMS, ZONE_PRIORITY, ZONES } from './data.js';
+import { ANIMALS, CALIBRES, HARPOONS, ITEMS, ZONE_PRIORITY, ZONES } from './data.js';
 import { windAt } from './lib/ballistics.js';
 import { evaluate, toModel } from './lib/hitzones.js';
 import { getState, scaleOf, speciesOf, STATE } from './game.js';
@@ -66,6 +66,19 @@ export function selfTest(message) {
     if (fromLeft.fate === 'none' || fromLeft.fate === 'wound') fail.push(`${a.id}: heart shot not lethal (${fromLeft.fate})`);
     const over = shot([heart[0] + 60, m.bounds[1][1] + 8, heart[2]], [-1, 0, 0]);
     if (over.hit) fail.push(`${a.id}: shot over the back hit ${over.zones.map((z) => z.zone)}`);
+  }
+
+  // A speargun bolt through a fish's heart, under water, is lethal; fired through the air it goes less deep.
+  const bolt = CALIBRES.harpoon_bolt;
+  for (const a of ANIMALS.filter((x) => x.fish)) {
+    const m = a.hitModel;
+    const heart = organCentre(m, 'heart');
+    const shot = (power) => evaluate({ model: m, zones: ZONES, priority: ZONE_PRIORITY, o: [heart[0] + 40, heart[1], heart[2]], d: [-1, 0, 0], energy: bolt.energy * power * power, penetration: bolt.penetration * power, cmPerPx: 6.25 * (a.scale ?? 1), minEnergy: 0, bigGame: true });
+    const wet = shot(HARPOONS.speargun.powerWater);
+    if (!wet.zones.some((z) => z.zone === 'heart') || !['kill', 'mortal'].includes(wet.fate)) fail.push(`${a.id}: harpoon heart shot ${wet.fate} (${wet.zones.map((z) => z.zone)})`);
+    const dry = shot(HARPOONS.speargun.powerAir);
+    const depth = (r) => r.zones.reduce((n, z) => n + z.percent, 0);
+    if (depth(dry) > depth(wet)) fail.push(`${a.id}: a harpoon went deeper through the air`);
   }
 
   // Wind is deterministic.

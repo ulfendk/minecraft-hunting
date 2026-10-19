@@ -26,7 +26,7 @@ import net.minecraft.world.phys.HitResult;
 import net.minecraft.world.phys.Vec3;
 import org.jspecify.annotations.Nullable;
 
-/** Firing rifles and the shotgun: the Java twin of scripts/shooting.js. */
+/** Firing rifles and the shotgun (not under water): the Java twin of scripts/shooting.js. */
 public final class Shooting {
 	private Shooting() {}
 
@@ -82,7 +82,7 @@ public final class Shooting {
 			if (distance > blockS) continue;
 			double energy = Ballistics.energyAt(c, distance);
 			double penetration = c.penetration() * Math.sqrt(energy / c.energy());
-			double minEnergy = c.isShot() ? sp.game().minShotEnergy() : c.velocity() < 200 ? 0 : sp.game().minEnergy();
+			double minEnergy = c.isShot() ? sp.game().minShotEnergy() : c.projectile() ? 0 : sp.game().minEnergy();
 			HitZones.Report r = HitZones.evaluate(model, o, d, energy, penetration, 6.25 * k, minEnergy, !sp.game().gameClass().equals("small"));
 			if (r.hit()) return new Hit("game", e, distance, energy, r);
 		}
@@ -167,6 +167,12 @@ public final class Shooting {
 		if (f == null || !gun.is(HuntingRegistry.item(firearmId))) return;
 		if (player.getCooldowns().isOnCooldown(gun)) {
 			player.sendOverlayMessage(Component.translatable("hunting.hud.cycling"));
+			return;
+		}
+		// Under water a firearm is useless: the powder is wet and the bullet stops in a metre.
+		if (player.isEyeInFluid(net.minecraft.tags.FluidTags.WATER)) {
+			player.sendOverlayMessage(Component.translatable("hunting.hud.underwater_gun"));
+			level.playSound(null, player.blockPosition(), SoundEvents.DISPENSER_FAIL, SoundSource.PLAYERS, 0.6F, 0.8F);
 			return;
 		}
 		Item ammoItem = HuntingRegistry.item(f.ammo());

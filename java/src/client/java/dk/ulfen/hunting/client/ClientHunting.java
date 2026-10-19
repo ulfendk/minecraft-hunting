@@ -27,7 +27,7 @@ import org.jspecify.annotations.Nullable;
  * sneak to steady your aim and hold your breath. Also keeps the latest shot report.
  */
 public final class ClientHunting {
-	private static final KeyMapping.Category CATEGORY = KeyMapping.Category.register(HuntingRegistry.id("hunting"));
+	static final KeyMapping.Category CATEGORY = KeyMapping.Category.register(HuntingRegistry.id("hunting"));
 	public static final KeyMapping REPORT = new KeyMapping("key.hunting.report", InputConstants.Type.KEYBOARD, InputConstants.KEY_R, CATEGORY);
 	public static final KeyMapping ZOOM = new KeyMapping("key.hunting.zoom", InputConstants.Type.KEYBOARD, InputConstants.KEY_Z, CATEGORY);
 

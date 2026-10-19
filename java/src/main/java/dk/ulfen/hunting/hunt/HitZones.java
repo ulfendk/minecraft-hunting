@@ -230,8 +230,10 @@ public final class HitZones {
 		if (lungs > model.zoneSize().getOrDefault("lungs", 8.0) * 0.8) bleed = Math.min(bleed, 6);
 
 		String grade;
-		if (totals.containsKey("heart") || (totals.containsKey("lungs") && accuracy >= 75)) grade = "perfect";
-		else if (totals.containsKey("lungs") || totals.containsKey("brain") || totals.containsKey("spine")) grade = "good";
+		// Gills are a fish's lungs.
+		boolean breath = totals.containsKey("lungs") || totals.containsKey("gills");
+		if (totals.containsKey("heart") || (breath && accuracy >= 75)) grade = "perfect";
+		else if (breath || totals.containsKey("brain") || totals.containsKey("spine")) grade = "good";
 		else if (totals.containsKey("liver")) grade = "poor";
 		else if (fate.equals("none")) grade = "miss";
 		else grade = "unethical";

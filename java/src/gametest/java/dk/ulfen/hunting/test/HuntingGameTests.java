@@ -31,7 +31,19 @@ import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.effect.MobEffects;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.Mob;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.entity.EquipmentSlot;
+import net.minecraft.world.entity.item.ItemEntity;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
+import dk.ulfen.hunting.entity.GameFish;
+import dk.ulfen.hunting.entity.MiniSubmarine;
+import dk.ulfen.hunting.hunt.Diving;
+import dk.ulfen.hunting.hunt.ProjectileHits;
+import dk.ulfen.hunting.hunt.Tether;
 
 /** Server-side checks run by `./gradlew runGameTest` (and in CI). */
 public class HuntingGameTests {
@@ -53,7 +65,10 @@ public class HuntingGameTests {
 		List<Mob> mobs = new ArrayList<>();
 		int i = 0;
 		for (EntityType<? extends Mob> type : HuntingRegistry.ANIMALS.values()) {
-			Mob mob = helper.spawn(type, new BlockPos(1 + (i % 6), 1, 1 + (i / 6)));
+			BlockPos pos = new BlockPos(1 + (i % 6), 1, 1 + (i / 6));
+			// Fish get a little water to swim in.
+			if (SpeciesRegistry.of(type).isSwimmer()) helper.setBlock(pos, Blocks.WATER);
+			Mob mob = helper.spawn(type, pos);
 			mob.addEffect(new MobEffectInstance(MobEffects.RESISTANCE, 200, 4));
 			mobs.add(mob);
 			i++;
@@ -179,5 +194,116 @@ public class HuntingGameTests {
 			if (!deer.isCarcass()) throw fail(helper, "has not bled out yet");
 			if (Wounds.trailsNear(helper.getLevel(), deer.position(), 30).isEmpty()) throw fail(helper, "no blood trail");
 		});
+	}
+
+	// ---------------------------------------------------------------- spearfishing
+
+	/** Fill a box (relative coordinates, inclusive) with water. */
+	private static void pool(GameTestHelper helper, int x0, int y0, int z0, int x1, int y1, int z1) {
+		for (int x = x0; x <= x1; x++) for (int y = y0; y <= y1; y++) for (int z = z0; z <= z1; z++) helper.setBlock(new BlockPos(x, y, z), Blocks.WATER);
+	}
+
+	/** A sea bass in a pool swims about and is still in the water (and alive) three seconds later. */
+	@GameTest(maxTicks = 100)
+	public void fishStaysInWater(GameTestHelper helper) {
+		pool(helper, 1, 1, 1, 6, 4, 6);
+		GameFish fish = (GameFish) helper.spawn(HuntingRegistry.ANIMALS.get("sea_bass"), new BlockPos(3, 2, 3));
+		helper.runAfterDelay(60, () -> {
+			if (!fish.isAlive() || fish.isCarcass()) throw fail(helper, "the fish died");
+			if (!fish.isInWater()) throw fail(helper, "the fish left the water");
+			helper.succeed();
+		});
+	}
+
+	/** A harpoon bolt through a fish's heart, under water, is lethal; through the air it does less. */
+	@GameTest(maxTicks = 40)
+	public void harpoonHitsFish(GameTestHelper helper) {
+		pool(helper, 1, 1, 1, 6, 4, 6);
+		GameFish fish = (GameFish) helper.spawn(HuntingRegistry.ANIMALS.get("bluefin_tuna"), new BlockPos(3, 2, 3));
+		fish.setNoAi(true);
+		fish.setAge(0);
+		ServerPlayer player = helper.makeMockServerPlayerInLevel();
+		helper.runAfterDelay(2, () -> {
+			HitZones.ModelSpace m = new HitZones.ModelSpace(fish.position(), fish.yBodyRot, fish.getScale());
+			double[] heart = organCentre(Shooting.hitModelFor(fish), "heart");
+			Vec3 at = m.world(new double[] {heart[0] + 6, heart[1], heart[2]});
+			Vec3 dir = m.world(heart).subtract(at).normalize();
+			HitZones.Report wet = ProjectileHits.hit(fish, helper.getLevel(), player, "harpoon_bolt", at, dir, 1.0, 6);
+			if (!wet.has("heart") || !(wet.fate().equals("mortal") || wet.fate().equals("kill"))) throw fail(helper, "heart shot: " + wet.fate() + " " + wet.zones());
+			helper.succeed();
+		});
+	}
+
+	/** A fish on the line comes back with its bolt when it is let go, and a dive knife field dresses it. */
+	@GameTest(maxTicks = 40)
+	public void lineAndDiveKnife(GameTestHelper helper) {
+		pool(helper, 1, 1, 1, 6, 4, 6);
+		GameFish fish = (GameFish) helper.spawn(HuntingRegistry.ANIMALS.get("sea_bass"), new BlockPos(3, 2, 3));
+		ServerPlayer player = helper.makeMockServerPlayerInLevel();
+		player.snapTo(helper.absoluteVec(new Vec3(4, 2, 4)));
+		if (!Tether.attach(player, fish, new ItemStack(HuntingRegistry.item("harpoon_bolt")), false, 20)) throw fail(helper, "could not attach the line");
+		if (!fish.isLeashed() || Tether.held(player) == null) throw fail(helper, "the fish is not on the line");
+		if (!Tether.release(player)) throw fail(helper, "could not let go of the line");
+		if (fish.isLeashed()) throw fail(helper, "still leashed after letting go");
+		if (!player.getInventory().contains(new ItemStack(HuntingRegistry.item("harpoon_bolt")))) throw fail(helper, "the bolt did not come back");
+		Wounds.becomeCarcass(fish, helper.getLevel(), player.getUUID(), 0);
+		player.setItemInHand(InteractionHand.MAIN_HAND, new ItemStack(HuntingRegistry.item("dive_knife")));
+		Wounds.fieldDress(fish, helper.getLevel(), player, player.getMainHandItem());
+		if (!fish.isRemoved()) throw fail(helper, "the dive knife did not field dress the fish");
+		helper.succeed();
+	}
+
+	/** With a dive mask and a scuba tank a diver keeps breathing, and the tank empties. */
+	@GameTest(maxTicks = 40)
+	public void scubaKeepsAirAndDrainsTank(GameTestHelper helper) {
+		pool(helper, 1, 1, 1, 3, 4, 3);
+		ServerPlayer player = helper.makeMockServerPlayerInLevel();
+		player.setGameMode(net.minecraft.world.level.GameType.SURVIVAL);
+		player.snapTo(helper.absoluteVec(new Vec3(2.5, 1, 2.5)));
+		player.setItemSlot(EquipmentSlot.HEAD, new ItemStack(HuntingRegistry.item("dive_mask")));
+		ItemStack tank = new ItemStack(HuntingRegistry.item("scuba_tank"));
+		player.setItemSlot(EquipmentSlot.CHEST, tank);
+		player.setAirSupply(10);
+		helper.runAfterDelay(2, () -> {
+			player.baseTick(); // the mock player isn't ticked by a client: work out the water it is in
+			if (!player.isEyeInFluid(net.minecraft.tags.FluidTags.WATER)) throw fail(helper, "the test diver is not under water");
+			Diving.tickPlayer(player);
+			if (player.getAirSupply() != player.getMaxAirSupply()) throw fail(helper, "air not topped up: " + player.getAirSupply());
+			ItemStack worn = player.getItemBySlot(EquipmentSlot.CHEST);
+			if (Diving.air(worn) != Diving.maxAir() - Diving.STEP) throw fail(helper, "tank air " + Diving.air(worn));
+			helper.succeed();
+		});
+	}
+
+	/** A submarine with a flat battery floats up to the surface. */
+	@GameTest(maxTicks = 100)
+	public void flatSubmarineFloatsUp(GameTestHelper helper) {
+		pool(helper, 1, 1, 1, 5, 7, 5);
+		MiniSubmarine sub = helper.spawn(HuntingRegistry.MINI_SUBMARINE, new BlockPos(3, 1, 3));
+		sub.setBattery(0);
+		double y0 = sub.getY();
+		helper.runAfterDelay(60, () -> {
+			if (sub.getY() < y0 + 1) throw fail(helper, "did not rise: " + y0 + " -> " + sub.getY());
+			helper.succeed();
+		});
+	}
+
+	/** Redstone charges a submarine; players hitting it break it into its item. */
+	@GameTest(maxTicks = 40)
+	public void submarineChargesAndBreaks(GameTestHelper helper) {
+		MiniSubmarine sub = helper.spawn(HuntingRegistry.MINI_SUBMARINE, new BlockPos(3, 1, 3));
+		ServerPlayer player = helper.makeMockServerPlayerInLevel();
+		player.setGameMode(net.minecraft.world.level.GameType.SURVIVAL);
+		sub.setBattery(100);
+		player.setItemInHand(InteractionHand.MAIN_HAND, new ItemStack(Items.REDSTONE, 2));
+		sub.interact(player, InteractionHand.MAIN_HAND, sub.position());
+		if (sub.battery() <= 100) throw fail(helper, "redstone did not charge the battery");
+		if (player.getMainHandItem().getCount() != 1) throw fail(helper, "the redstone was not used up");
+		for (int i = 0; i < 20 && !sub.isRemoved(); i++) sub.hurtServer(helper.getLevel(), helper.getLevel().damageSources().playerAttack(player), 4);
+		if (!sub.isRemoved()) throw fail(helper, "the submarine did not break");
+		AABB around = new AABB(sub.position(), sub.position()).inflate(3);
+		boolean dropped = helper.getLevel().getEntitiesOfClass(ItemEntity.class, around, e -> e.getItem().is(HuntingRegistry.item("mini_submarine"))).size() == 1;
+		if (!dropped) throw fail(helper, "the submarine item was not dropped");
+		helper.succeed();
 	}
 }

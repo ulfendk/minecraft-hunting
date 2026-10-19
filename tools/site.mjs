@@ -19,10 +19,11 @@ const [owner, name] = repo.split('/');
 
 const GROUPS = {
   deer: ['white_tailed_deer', 'red_deer', 'roe_deer', 'moose'],
-  big: ['moose', 'red_deer', 'black_bear', 'wild_boar'],
-  predator: ['black_bear', 'gray_wolf', 'red_fox'],
+  big: ['moose', 'red_deer', 'black_bear', 'wild_boar', 'bluefin_tuna', 'porbeagle'],
+  predator: ['black_bear', 'gray_wolf', 'red_fox', 'porbeagle'],
   small: ['hare', 'red_fox'],
   bird: ['pheasant', 'mallard', 'wild_turkey'],
+  fish: ['sea_bass', 'bluefin_tuna', 'porbeagle'],
 };
 const groupsOf = (id) => Object.entries(GROUPS).filter(([, ids]) => ids.includes(id)).map(([g]) => g).join(' ');
 
@@ -53,7 +54,8 @@ for (const a of animals) {
 const order = ['white_tailed_deer', 'red_deer', 'roe_deer', 'moose', 'wild_boar', 'black_bear', 'gray_wolf', 'red_fox', 'hare', 'pheasant', 'mallard', 'wild_turkey', 'hunting_dog'];
 cards.sort((x, y) => order.indexOf(x.a.id) - order.indexOf(y.a.id));
 
-for (const item of [...items, ...blocks.map((b) => ({ ...b, icon: b.texture }))]) {
+const shownItems = items.filter((i) => !i.bedrockOnly);
+for (const item of [...shownItems, ...blocks.map((b) => ({ ...b, icon: b.texture }))]) {
   await writeFile(join(OUT, 'img', 'items', `${item.id}.png`), upscale(item.icon, 4));
 }
 await copyFile(join(RP, 'pack_icon.png'), join(OUT, 'img', 'icon.png'));
@@ -87,7 +89,7 @@ function page(lang) {
         </div>
       </article>`).join('');
 
-  const itemHtml = [...items, ...blocks].map((i) => `
+  const itemHtml = [...shownItems, ...blocks].map((i) => `
         <li><img src="${up}img/items/${i.id}.png" alt="" width="48" height="48"><span>${esc(t.items?.[i.id] ?? i.name)}</span></li>`).join('');
 
   const switcher = Object.entries(LANGUAGES)

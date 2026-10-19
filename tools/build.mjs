@@ -14,16 +14,19 @@ import { render } from './render.mjs';
 import { buildJava } from './java.mjs';
 import { buildGeometry } from '../src/lib/model.mjs';
 import { paintTexture } from '../src/lib/texture.mjs';
-import { buildItem, items, recipes } from '../src/items.mjs';
+import { buildItem, items, KNIVES, recipes } from '../src/items.mjs';
 import { blockRecipes, blocks, features } from '../src/blocks.mjs';
 import { buildHelper, buildHelperClient, buildProjectile, buildProjectileClient, helpers, projectiles } from '../src/projectiles.mjs';
 import { buildHitModel } from '../src/lib/hitmodel.mjs';
-import { CALIBRES, FIREARMS } from '../src/weapons.mjs';
+import { CALIBRES, FIREARMS, HARPOONS, LINE } from '../src/weapons.mjs';
+import { DIVE } from '../src/diving.mjs';
+import { SUB, submarineAnims, submarineMaterials, submarineModel } from '../src/submarine.mjs';
+import { buildSubmarine, buildSubmarineClient, buildSubmarineLoot, buildSubmarineRenderController } from '../src/lib/vehicle.mjs';
 import { GRADES, ZONE_PRIORITY, ZONES } from '../src/zones.mjs';
 import { HUD_CHARS, hudScreen, SCOPE_PREFIX, XRAY_PREFIX } from '../src/hud.mjs';
 import { xray, xrayView } from './xray.mjs';
 import { black, scopeTexture } from './hudart.mjs';
-import { armorLayer } from '../src/lib/armor.mjs';
+import { ARMOR_LAYER_SETS, armorLayer } from '../src/lib/armor.mjs';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const OUT = join(ROOT, 'build');
@@ -125,7 +128,7 @@ export async function build({ quiet = false } = {}) {
   await write(join(RP, 'pack_icon.png'), icon);
 
   const animals = await loadAnimals();
-  const java = { geos: {}, anims: {}, textures: {}, langs: {}, xrays: {}, armor: {} };
+  const java = { geos: {}, anims: {}, textures: {}, langs: {}, xrays: {}, armor: {}, vehicles: [] };
   const entitySounds = {};
   const report = [];
 
@@ -210,6 +213,25 @@ export async function build({ quiet = false } = {}) {
     });
   }
 
+  // Vehicles: the mini submarine.
+  {
+    const id = 'mini_submarine';
+    const geo = buildGeometry(`geometry.${NS}.${id}`, submarineModel);
+    const texture = paintTexture(geo, submarineMaterials);
+    const anims = animationFile(id, submarineAnims);
+    await write(join(BP, 'entities', `${id}.json`), buildSubmarine(SUB));
+    await write(join(BP, 'loot_tables', 'entities', `${NS}_${id}.json`), buildSubmarineLoot());
+    await write(join(RP, 'entity', `${id}.entity.json`), buildSubmarineClient());
+    await write(join(RP, 'models', 'entity', `${id}.geo.json`), geo.geometry);
+    await write(join(RP, 'textures', 'entity', NS, `${id}.png`), texture);
+    await write(join(RP, 'animations', `${id}.animation.json`), anims);
+    await write(join(RP, 'render_controllers', `${id}.render_controllers.json`), buildSubmarineRenderController());
+    java.geos[id] = geo.geometry;
+    java.textures[id] = texture;
+    java.anims[id] = anims;
+    java.vehicles.push(id);
+  }
+
   // Data for the scripts: species, hit models, zones, calibres, HUD codes.
   const game = animals.filter((a) => a.game);
   const data = animals.map((a) => ({
@@ -220,6 +242,7 @@ export async function build({ quiet = false } = {}) {
       scale: a.scale ?? 1,
       health: a.health,
       bird: a.movement === 'fly',
+      fish: a.movement === 'swim',
       hitModel: a.hitModel,
       hitModelFemale: a.hitModelFemale,
       xrayZones: a.xrayZones,
@@ -238,6 +261,11 @@ export async function build({ quiet = false } = {}) {
     `export const GRADES = ${JSON.stringify(Object.keys(GRADES))};`,
     `export const CALIBRES = ${JSON.stringify(CALIBRES)};`,
     `export const FIREARMS = ${JSON.stringify(FIREARMS)};`,
+    `export const HARPOONS = ${JSON.stringify(HARPOONS)};`,
+    `export const LINE = ${JSON.stringify(LINE)};`,
+    `export const KNIVES = ${JSON.stringify(KNIVES.map((k) => `${NS}:${k}`))};`,
+    `export const DIVE = ${JSON.stringify(DIVE)};`,
+    `export const SUB = ${JSON.stringify(SUB)};`,
     `export const GAME = ${JSON.stringify(game.map((a) => a.id))};`,
     `export const HUD = ${JSON.stringify({ chars: HUD_CHARS, scope: SCOPE_PREFIX, xray: XRAY_PREFIX })};`,
     '',
@@ -276,7 +304,7 @@ export async function build({ quiet = false } = {}) {
           description: {
             identifier: `${NS}:${item.id}`,
             materials: { default: 'armor', enchanted: 'armor_enchanted' },
-            textures: { default: `textures/models/armor/${NS}_ghillie_${layer}`, enchanted: 'textures/misc/enchanted_item_glint' },
+            textures: { default: `textures/models/armor/${NS}_${item.armor.set}_${layer}`, enchanted: 'textures/misc/enchanted_item_glint' },
             geometry: { default: `geometry.player.armor.${item.armor.geometry}` },
             scripts: { parent_setup: `variable.${visible}_layer_visible = 0.0;` },
             render_controllers: ['controller.render.armor'],
@@ -285,10 +313,13 @@ export async function build({ quiet = false } = {}) {
       });
     }
   }
-  for (const layer of [1, 2]) {
-    const png = armorLayer(layer);
-    await write(join(RP, 'textures', 'models', 'armor', `${NS}_ghillie_${layer}.png`), png);
-    java.armor[layer] = png;
+  for (const set of ARMOR_LAYER_SETS) {
+    java.armor[set] = {};
+    for (const layer of [1, 2]) {
+      const png = armorLayer(set, layer);
+      await write(join(RP, 'textures', 'models', 'armor', `${NS}_${set}_${layer}.png`), png);
+      java.armor[set][layer] = png;
+    }
   }
   // Blocks
   const terrain = {};
@@ -325,7 +356,7 @@ export async function build({ quiet = false } = {}) {
   if (missing.length) throw new Error(`Add translations for these foods in src/lang.mjs: ${missing.join(', ')}`);
   for (const locale of LOCALES) {
     const entries = langEntries(locale, {
-      animals, items, blocks, extraEntities: [...projectiles, ...helpers], description: pkg.description, version: pkg.version,
+      animals, items, blocks, extraEntities: [...projectiles, ...helpers, { id: 'mini_submarine', name: 'Mini Submarine' }], description: pkg.description, version: pkg.version,
     });
     java.langs[locale] = entries;
     const text = entries.map(([k, v]) => `${k}=${v}`).join('\n') + '\n';
@@ -337,6 +368,7 @@ export async function build({ quiet = false } = {}) {
   const speciesCount = await buildJava({
     animals, ...java, items, blocks, recipes: [...recipes, ...blockRecipes], projectiles, icon,
     calibres: CALIBRES, firearms: FIREARMS, zones: ZONES, priority: ZONE_PRIORITY,
+    harpoons: HARPOONS, line: LINE, knives: KNIVES, dive: DIVE, submarine: SUB,
     OUT: join(ROOT, 'java', 'src', 'generated', 'resources'),
   });
 

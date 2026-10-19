@@ -262,17 +262,21 @@ export function animationFile(id, anims) {
   return { format_version: '1.8.0', animations: out };
 }
 
-/** Fish: side-to-side tail beat; the body follows a little. */
+/** Fish: side-to-side tail beat; the body follows a little. A dead fish turns belly up. */
 export function fish(o = {}) {
-  const body = o.body ?? 'body', tail = o.tail ?? 'tail', jaw = o.jaw;
+  const body = o.body ?? 'body', tail = o.tail ?? 'tail', jaw = o.jaw, root = o.root ?? 'root';
+  const caudal = o.caudal, fins = o.fins ?? [];
   const n = 8;
   const beat = (len, amp) => bones(
     { [tail]: { rotation: cycle(len, n, (p) => [0, amp * sin(p), 0]) } },
+    caudal ? { [caudal]: { rotation: cycle(len, n, (p) => [0, amp * 0.6 * sin(p, -0.15), 0]) } } : {},
     { [body]: { rotation: cycle(len, n, (p) => [0, amp * 0.25 * sin(p, 0.5), 0]) } },
+    Object.fromEntries(fins.map((f, i) => [f, { rotation: cycle(len, n, (p) => [0, (i % 2 ? -1 : 1) * amp * 0.5 * sin(p, 0.25), 0]) }])),
   );
   return {
-    swim: loop(0.6, beat(0.6, 25)),
+    swim: loop(o.swimLength ?? 0.6, beat(o.swimLength ?? 0.6, o.amp ?? 25)),
     idle: loop(1.6, beat(1.6, 10)),
+    dead: hold({ [root]: { rotation: [0, 0, 180] } }),
     attack: once(0.4, bones(
       { [body]: { position: { '0.0': [0, 0, 0], '0.15': [0, 0, -2], '0.4': [0, 0, 0] } } },
       jaw ? { [jaw]: { rotation: { '0.0': [0, 0, 0], '0.1': [30, 0, 0], '0.25': [0, 0, 0], '0.4': [0, 0, 0] } } } : {},

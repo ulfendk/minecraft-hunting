@@ -8,6 +8,7 @@ import com.geckolib.animatable.manager.AnimatableManager;
 import com.geckolib.util.GeckoLibUtil;
 
 import dk.ulfen.hunting.hunt.Senses;
+import dk.ulfen.hunting.hunt.Tether;
 import dk.ulfen.hunting.hunt.Wounds;
 import dk.ulfen.hunting.species.Species;
 import dk.ulfen.hunting.species.SpeciesRegistry;
@@ -28,6 +29,7 @@ import net.minecraft.world.entity.AgeableMob;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntitySpawnReason;
 import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.Leashable;
 import net.minecraft.world.entity.Mob;
 import net.minecraft.world.entity.SpawnGroupData;
 import net.minecraft.world.entity.ai.attributes.AttributeSupplier;
@@ -251,7 +253,8 @@ public class GameAnimal extends Animal implements GameCreature {
 		if (this.isResting() || isCarcass()) this.getNavigation().stop();
 		if (this.level() instanceof ServerLevel level) {
 			if (isCarcass()) {
-				this.setDeltaMovement(this.getDeltaMovement().multiply(0, 1, 0));
+				// A carcass lies still, unless it is being reeled in on a line.
+				if (!Tether.isTethered(this)) this.setDeltaMovement(this.getDeltaMovement().multiply(0, 1, 0));
 				if (level.getGameTime() - this.carcassSince > ROT_TICKS) this.discard();
 				return;
 			}
@@ -301,6 +304,32 @@ public class GameAnimal extends Animal implements GameCreature {
 	@Override
 	public boolean causeFallDamage(double fallDistance, float damageModifier, DamageSource source) {
 		return !species().fallImmune() && super.causeFallDamage(fallDistance, damageModifier, source);
+	}
+
+	// ---------------------------------------------------------------- harpoon line
+
+	/** On a harpoon line the leash is the line: longer, and it never drops a lead. */
+	@Override
+	public double leashSnapDistance() {
+		Tether.Line l = Tether.of(this);
+		return l != null ? Tether.snapDistance(l) : Leashable.LEASH_TOO_FAR_DIST;
+	}
+
+	@Override
+	public double leashElasticDistance() {
+		Tether.Line l = Tether.of(this);
+		return l != null ? l.length * 0.8 : Leashable.LEASH_ELASTIC_DIST;
+	}
+
+	@Override
+	public void dropLeash() {
+		if (Tether.of(this) != null) {
+			this.removeLeash();
+			Tether.leashBroken(this);
+		} else {
+			this.removeLeash();
+			if (this.level() instanceof ServerLevel level) this.spawnAtLocation(level, net.minecraft.world.item.Items.LEAD);
+		}
 	}
 
 	// ---------------------------------------------------------------- sounds

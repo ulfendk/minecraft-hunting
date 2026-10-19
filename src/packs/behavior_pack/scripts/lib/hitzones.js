@@ -170,9 +170,11 @@ export function evaluate({ model, zones, priority, o, d, energy, penetration, cm
   if (fate !== 'mortal') bleed = fate === 'kill' ? 0 : 0;
 
   const has = (z) => totals.has(z);
+  // Gills are a fish's lungs.
+  const breath = has('lungs') || has('gills');
   let grade;
-  if (has('heart') || (has('lungs') && accuracy >= 75)) grade = 'perfect';
-  else if (has('lungs') || has('brain') || has('spine')) grade = 'good';
+  if (has('heart') || (breath && accuracy >= 75)) grade = 'perfect';
+  else if (breath || has('brain') || has('spine')) grade = 'good';
   else if (has('liver')) grade = 'poor';
   else if (fate === 'none') grade = 'miss';
   else grade = 'unethical';

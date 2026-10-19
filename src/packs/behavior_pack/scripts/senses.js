@@ -124,8 +124,10 @@ function sense(animal, a, player, w, now) {
   const hidden = concealment(player);
   let gain = 0;
 
-  // Sight: a cone in front, plus anything very close; worse at night.
-  const sightRange = 72 * s.sight;
+  // Sight: a cone in front, plus anything very close; worse at night, and short under water.
+  let underwater = false;
+  try { underwater = a.fish || animal.isInWater; } catch {}
+  const sightRange = underwater ? Math.min(20, 72 * s.sight) : 72 * s.sight;
   if (d < sightRange) {
     const view = animal.getViewDirection();
     const to = norm(sub(p, head));

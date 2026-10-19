@@ -100,7 +100,8 @@ public final class Senses {
 		double hidden = concealment(player);
 		double gain = 0;
 
-		double sightRange = 72 * s.sight();
+		// Short under water.
+		double sightRange = animal.isInWater() ? Math.min(20, 72 * s.sight()) : 72 * s.sight();
 		if (d < sightRange) {
 			Vec3 view = animal.getViewVector(1.0F);
 			Vec3 to = p.subtract(head).normalize();

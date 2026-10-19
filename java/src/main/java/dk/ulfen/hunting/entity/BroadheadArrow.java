@@ -6,12 +6,7 @@ import com.geckolib.animatable.manager.AnimatableManager;
 import com.geckolib.util.GeckoLibUtil;
 
 import dk.ulfen.hunting.HuntingRegistry;
-import dk.ulfen.hunting.hunt.HitZones;
-import dk.ulfen.hunting.hunt.HuntingData;
-import dk.ulfen.hunting.hunt.Journal;
-import dk.ulfen.hunting.hunt.Senses;
-import dk.ulfen.hunting.hunt.Shooting;
-import dk.ulfen.hunting.hunt.Wounds;
+import dk.ulfen.hunting.hunt.ProjectileHits;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.sounds.SoundEvent;
@@ -22,7 +17,6 @@ import net.minecraft.world.entity.projectile.arrow.AbstractArrow;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.phys.EntityHitResult;
-import net.minecraft.world.phys.Vec3;
 import org.jspecify.annotations.Nullable;
 
 /** The compound bow's arrow. Hitting a game animal is evaluated hit zone by hit zone. */
@@ -46,19 +40,7 @@ public class BroadheadArrow extends AbstractArrow implements GeoEntity {
 				this.discard();
 				return;
 			}
-			HuntingData.Calibre c = HuntingData.CALIBRES.get("arrow");
-			Vec3 dir = this.getDeltaMovement().normalize();
-			Vec3 start = hit.getLocation().subtract(dir.scale(3));
-			HitZones.ModelSpace m = new HitZones.ModelSpace(animal.position(), animal.yBodyRot, animal.getScale());
-			HitZones.Report r = HitZones.evaluate(Shooting.hitModelFor(animal), m.point(start), m.direction(dir), c.energy(), c.penetration(),
-				6.25 * animal.getScale(), 0, true);
-			// The engine says it hit; the model says it slipped past: count it as a graze.
-			if (!r.hit()) r = new HitZones.Report(true, java.util.List.of(new HitZones.ZoneHit("muscle", 10)), "wound", 0, r.accuracy(), "unethical",
-				null, null, null, null, false, java.util.List.of());
-			double distance = player.position().distanceTo(hit.getLocation());
-			long id = Journal.recordShot(player, animal, r, distance, c.name(), c.energy(), 0, 0);
-			Wounds.applyHit(animal, level, r, player, id);
-			Senses.makeNoise(player, 10, 20);
+			ProjectileHits.hit(animal, level, player, "arrow", hit.getLocation(), this.getDeltaMovement(), 1.0, 10);
 			this.playSound(SoundEvents.ARROW_HIT, 1.0F, 1.2F);
 			this.discard();
 			return;

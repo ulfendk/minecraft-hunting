@@ -1,4 +1,5 @@
-// Hunting weapons and ammunition: four scoped rifles, a shotgun and a compound bow.
+// Hunting weapons and ammunition: four scoped rifles, a shotgun, a compound bow, and for
+// spearfishing a hand harpoon and a speargun.
 // CALIBRES drive the ballistics (scripts/lib/ballistics.js, hunt/Ballistics.java) and the
 // hit-zone evaluation (penetration, energy).
 import { PNG } from 'pngjs';
@@ -12,6 +13,7 @@ import { NS } from './lib/constants.mjs';
  *   penetration   centimetres of muscle the bullet gets through
  *   pellets       shot charges fire several pellets with `spread` degrees of scatter
  *   range         furthest a shot is traced, blocks
+ *   projectile    a real projectile (arrow, harpoon): kills by bleeding, so no minimum energy
  */
 export const CALIBRES = {
   c243: { name: '.243 Winchester', velocity: 910, energy: 2400, drag: 0.0012, penetration: 45, range: 300 },
@@ -19,8 +21,25 @@ export const CALIBRES = {
   c3006: { name: '.30-06 Springfield', velocity: 880, energy: 3900, drag: 0.001, penetration: 75, range: 320 },
   c338: { name: '.338 Winchester Magnum', velocity: 900, energy: 5300, drag: 0.0008, penetration: 100, range: 350 },
   shot: { name: '12 gauge birdshot', velocity: 400, energy: 18, drag: 0.02, penetration: 5, range: 60, pellets: 9, spread: 2.2 },
-  arrow: { name: 'Broadhead arrow', velocity: 90, energy: 95, drag: 0, penetration: 55, range: 80 },
+  arrow: { name: 'Broadhead arrow', velocity: 90, energy: 95, drag: 0, penetration: 55, range: 80, projectile: true },
+  harpoon_bolt: { name: 'Harpoon bolt', velocity: 30, energy: 160, drag: 0, penetration: 50, range: 24, projectile: true },
+  thrown_harpoon: { name: 'Hand harpoon', velocity: 18, energy: 110, drag: 0, penetration: 40, range: 16, projectile: true },
 };
+
+/**
+ * Spearfishing weapons. A harpoon is made for water: it keeps its speed under water, while
+ * fired or thrown through the air it is slow and weak (`powerAir` scales its penetration).
+ *   speed       launch speed, blocks per tick
+ *   loadTicks   how long the speargun's bands take to pull back (hold use)
+ *   line        length of the line, blocks: further than that and the line snaps
+ */
+export const HARPOONS = {
+  speargun: { calibre: 'harpoon_bolt', ammo: 'harpoon_bolt', projectile: 'harpoon_bolt', speed: 2.6, loadTicks: 25, powerWater: 1.0, powerAir: 0.45, line: 20 },
+  harpoon: { calibre: 'thrown_harpoon', projectile: 'thrown_harpoon', speed: 2.2, minDraw: 8, powerWater: 1.0, powerAir: 0.75, line: 12 },
+};
+
+/** Reeling in a fish on a harpoon line. Hold sneak to reel; `pull` is blocks per tick for a 10 kg fish. */
+export const LINE = { pull: 0.18, fight: 0.12, snapTicks: 40, landed: 2.0 };
 
 /** Firearms: the item, its ammunition, the scope zoom levels (FOV degrees) and the bolt/pump cycle in ticks. */
 export const FIREARMS = {
@@ -152,6 +171,50 @@ const arrowIcon = icon([
   [2, 13, '#d84a2a'], [3, 13, '#d84a2a'], [2, 12, '#d84a2a'], [1, 14, '#f0e8e0'], [2, 14, '#f0e8e0'],
 ]);
 
+const harpoonIcon = icon(rows([
+  '...........hh...',
+  '..........hhb...',
+  '.........hhb....',
+  '........ss.b....',
+  '.......ss.......',
+  '......ss........',
+  '.....ss.........',
+  '....ss..........',
+  '...ss...........',
+  '..ss............',
+  '.ss.............',
+  'rr..............',
+  'r...............',
+  '................',
+  '................',
+  '................',
+], { h: '#c8ccd2', b: '#8a9098', s: '#7a6a52', r: '#e0c040' }));
+
+const speargunIcon = (loaded) => icon(rows([
+  '................',
+  '................',
+  '................',
+  '................',
+  loaded ? '.......bbbbbbbbh' : '................',
+  '......yy........',
+  'kk..ttttttttttt.',
+  'kkkkttttttttttt.',
+  '.kkKk.yy........',
+  '..kk............',
+  '..kk............',
+  '................',
+  '................',
+  '................',
+  '................',
+  '................',
+], { t: '#2a3a4a', y: '#e0c040', k: '#1e2022', K: '#3a3d42', b: '#c8ccd2', h: '#eef0f2' }));
+
+const boltIcon = icon([
+  ...Array.from({ length: 11 }, (_, k) => [3 + k, 12 - k, '#b8bcc4']),
+  [13, 2, '#eef0f2'], [14, 1, '#eef0f2'], [12, 2, '#8a9098'], [13, 3, '#8a9098'],
+  [2, 13, '#e0c040'], [3, 13, '#e0c040'], [2, 12, '#e0c040'],
+]);
+
 export const weaponItems = [
   { id: 'rifle_243', name: 'Varmint Rifle (.243)', category: 'equipment', stack: 1, icon: rifleIcon({ stock: '#4a5a3a', stockLight: '#6a7a4a' }), components: { 'minecraft:durability': { max_durability: 900 } } },
   { id: 'rifle_308', name: 'Hunting Rifle (.308)', category: 'equipment', stack: 1, icon: rifleIcon({}), components: { 'minecraft:durability': { max_durability: 900 } } },
@@ -178,6 +241,33 @@ export const weaponItems = [
   { id: 'cartridge_338', name: '.338 Magnum Cartridge', category: 'equipment', icon: cartridgeIcon('#3a3d42') },
   { id: 'shotgun_shell', name: 'Shotgun Shell', category: 'equipment', icon: shellIcon },
   { id: 'broadhead_arrow', name: 'Broadhead Arrow', category: 'equipment', icon: arrowIcon, components: { 'minecraft:projectile': { projectile_entity: `${NS}:broadhead_arrow`, minimum_critical_power: 1.2 } } },
+  // Spearfishing. Hold use to throw the harpoon or to pull back the speargun's bands; the
+  // scripts launch the projectiles (scripts/harpoon.js, item/HarpoonItem, item/SpeargunItem).
+  {
+    id: 'harpoon', name: 'Harpoon', category: 'equipment', stack: 1, icon: harpoonIcon,
+    components: {
+      'minecraft:damage': 5,
+      'minecraft:durability': { max_durability: 250 },
+      'minecraft:hand_equipped': true,
+      'minecraft:use_modifiers': { use_duration: 3600, movement_modifier: 0.5 },
+      'minecraft:use_animation': 'spear',
+      'minecraft:enchantable': { slot: 'spear', value: 1 },
+    },
+  },
+  {
+    id: 'speargun', name: 'Speargun', category: 'equipment', stack: 1, icon: speargunIcon(false),
+    components: {
+      'minecraft:durability': { max_durability: 350 },
+      'minecraft:use_modifiers': { use_duration: 3600, movement_modifier: 0.5 },
+      'minecraft:use_animation': 'crossbow',
+    },
+  },
+  // Bedrock has no "charged" item state: a loaded speargun is its own (hidden) item.
+  {
+    id: 'speargun_loaded', name: 'Speargun (loaded)', category: 'none', stack: 1, icon: speargunIcon(true), bedrockOnly: true,
+    components: { 'minecraft:durability': { max_durability: 350 } },
+  },
+  { id: 'harpoon_bolt', name: 'Harpoon Bolt', category: 'equipment', stack: 16, icon: boltIcon },
 ];
 
 const shaped = (id, pattern, key, count = 1) => ({
@@ -205,7 +295,26 @@ export const weaponRecipes = [
   shaped('cartridge_338', ['CC', 'GG', 'II'], { C: 'copper_ingot', G: 'gunpowder', I: 'iron_ingot' }, 8),
   shaped('shotgun_shell', ['P', 'G', 'C'], { P: 'paper', G: 'gunpowder', C: 'copper_ingot' }, 8),
   shaped('broadhead_arrow', ['I', 'S', 'F'], { I: 'iron_nugget', S: 'stick', F: 'feather' }, 4),
+  shaped('harpoon', ['  I', ' SN', 'S  '], { I: 'iron_ingot', S: 'stick', N: 'iron_nugget' }),
+  shaped('speargun', ['  T', 'III', 'PB '], { T: 'tripwire_hook', I: 'iron_ingot', P: 'oak_planks', B: 'slime_ball' }),
+  shaped('harpoon_bolt', ['N', 'I', 'I'], { N: 'iron_nugget', I: 'iron_bars' }, 4),
 ];
+
+/** A straight rod pointing to -z: a harpoon bolt or the hand harpoon. */
+function harpoonModel(length, { barbs = 1, butt = 0 } = {}) {
+  const z0 = -Math.floor(length / 2);
+  return {
+    bones: [{
+      name: 'body', pivot: [0, 0, 0],
+      cubes: [
+        { origin: [0, 0, z0 + 2], size: [1, 1, length - 2], mat: 'shaft' },
+        { origin: [0, 0, z0], size: [1, 1, 2], mat: 'head' },
+        ...Array.from({ length: barbs }, (_, i) => ({ origin: [-1, 0, z0 + 2 + i * 2], size: [3, 1, 1], mat: 'head' })),
+        ...(butt ? [{ origin: [0, 0, z0 + length - butt], size: [1, 1, butt], mat: 'butt' }] : []),
+      ],
+    }],
+  };
+}
 
 /** The arrow fired by the compound bow. Its hit is evaluated by the scripts, so impact damage is nil. */
 export const weaponProjectiles = [
@@ -229,5 +338,32 @@ export const weaponProjectiles = [
       }],
     },
     materials: { shaft: '#2a2a2a', head: '#9aa0a8', fletch: '#d84a2a' },
+  },
+  {
+    id: 'harpoon_bolt',
+    name: 'Harpoon Bolt',
+    damage: 0,
+    power: 2.6,
+    gravity: 0.03,
+    liquidInertia: 0.97,
+    stick: true,
+    rotate: true,
+    hitSound: 'random.bowhit',
+    model: harpoonModel(18, { barbs: 1, butt: 2 }),
+    materials: { shaft: '#b8bcc4', head: '#eef0f2', butt: '#e0c040' },
+  },
+  {
+    id: 'thrown_harpoon',
+    name: 'Harpoon',
+    damage: 0,
+    power: 2.2,
+    gravity: 0.05,
+    liquidInertia: 0.97,
+    stick: true,
+    keep: true,
+    rotate: true,
+    hitSound: 'item.trident.hit',
+    model: harpoonModel(28, { barbs: 2, butt: 3 }),
+    materials: { shaft: '#7a6a52', head: '#c8ccd2', butt: '#e0c040' },
   },
 ];

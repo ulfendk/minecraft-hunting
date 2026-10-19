@@ -36,7 +36,7 @@ const en = {
   animals: 'The game',
   animalsLede: 'Every species has its own senses, its own organ layout for the x-ray, and the calibre it takes to bring it down cleanly.',
   filterLabel: 'Filter animals',
-  filters: { all: 'All', deer: 'Deer', big: 'Big game', predator: 'Predators', small: 'Small game', bird: 'Birds' },
+  filters: { all: 'All', deer: 'Deer', big: 'Big game', predator: 'Predators', small: 'Small game', bird: 'Birds', fish: 'Fish' },
   howTitle: 'How to hunt',
   how: [
     ['Read the wind', 'Use a wind checker. Animals downwind of you smell you from far away, so always approach into the wind. A scent eliminator buys you some time.'],
@@ -45,6 +45,7 @@ const en = {
     ['Aim through the scope', 'Right-click to raise the scope and zoom in. Crouch to steady your aim and hold your breath, but not for too long. Every scope is zeroed at 100 m; use the holdover marks below the cross for longer shots.'],
     ['Pick the right calibre', 'A .243 is fine for roe deer and foxes, but moose and bears need a .338. Birds and hares are for the shotgun. A bullet that lacks the energy won’t make a clean kill.'],
     ['Track and recover', 'A heart or lung shot kills quickly, but the animal may still run. Follow the blood trail, or send your hunting dog. Field dress the animal with a hunting knife to get the meat and trophy.'],
+    ['Hunt under water', 'Firearms are useless under water: take a speargun or a hand harpoon. A snorkel lets you breathe just under the surface; a dive mask and scuba tank take you deep. A speared fish is on the line: hold sneak to reel it in. For tuna and sharks, take the mini submarine with its harpoon launcher.'],
   ],
   reportTitle: 'The shot report',
   reportText: 'After every hit you see an x-ray of the animal with the organs your shot passed through: the distance, energy at impact, entry and exit, accuracy, and whether it was a perfect, good, poor or unethical shot. Every shot is kept in your Hunting Journal.',
@@ -82,7 +83,7 @@ const da = {
   animals: 'Vildtet',
   animalsLede: 'Hver art har sine egne sanser, sine egne organer på røntgenbilledet og det kaliber, der skal til for at nedlægge den rent.',
   filterLabel: 'Filtrér dyr',
-  filters: { all: 'Alle', deer: 'Hjortevildt', big: 'Storvildt', predator: 'Rovdyr', small: 'Småvildt', bird: 'Fugle' },
+  filters: { all: 'Alle', deer: 'Hjortevildt', big: 'Storvildt', predator: 'Rovdyr', small: 'Småvildt', bird: 'Fugle', fish: 'Fisk' },
   howTitle: 'Sådan går du på jagt',
   how: [
     ['Læs vinden', 'Brug en vindtester. Dyr i medvind af dig kan lugte dig på lang afstand, så gå altid op mod vinden. En duftfjerner giver dig lidt ekstra tid.'],
@@ -91,6 +92,7 @@ const da = {
     ['Sigt gennem kikkerten', 'Højreklik for at løfte kikkertsigtet og zoome ind. Gå i hug for at sigte roligere, og hold vejret – men ikke for længe. Alle sigter er indskudt på 100 m; brug mærkerne under trådkorset på længere hold.'],
     ['Vælg det rette kaliber', 'En .243 er fin til rådyr og ræve, men elg og bjørn kræver en .338. Fugle og harer tages med haglgevær. En kugle uden nok energi giver ikke et rent drab.'],
     ['Eftersøg og hent dyret', 'Et hjerte- eller lungeskud dræber hurtigt, men dyret kan stadig løbe et stykke. Følg blodsporet, eller send din jagthund. Brækket dyret med en jagtkniv for at få kødet og trofæet.'],
+    ['Jag under vand', 'Skydevåben er ubrugelige under vand: tag et harpungevær eller en håndharpun med. Med en snorkel kan du trække vejret lige under overfladen; med dykkermaske og lufttank kan du dykke dybt. En harpuneret fisk hænger på linen: hold snig nede for at hale den ind. Til tun og hajer kan du tage mini-ubåden med harpunkanon.'],
   ],
   reportTitle: 'Skudrapporten',
   reportText: 'Efter hvert træf ser du et røntgenbillede af dyret med de organer, dit skud gik igennem: afstand, energi ved træffet, ind- og udskud, præcision, og om det var et perfekt, godt, dårligt eller uetisk skud. Alle skud gemmes i din jagtdagbog.',
@@ -100,7 +102,7 @@ const da = {
   names: {
     white_tailed_deer: 'Hvidhalet hjort', red_deer: 'Kronhjort', roe_deer: 'Rådyr', moose: 'Elg', wild_boar: 'Vildsvin',
     black_bear: 'Sortbjørn', gray_wolf: 'Grå ulv', red_fox: 'Rødræv', hare: 'Hare', pheasant: 'Fasan', mallard: 'Gråand',
-    wild_turkey: 'Vild kalkun', hunting_dog: 'Jagthund',
+    wild_turkey: 'Vild kalkun', hunting_dog: 'Jagthund', sea_bass: 'Havbars', bluefin_tuna: 'Blåfinnet tun', porbeagle: 'Sildehaj',
   },
   guide: {
     white_tailed_deer: 'Vagtsom og hurtig, med en hvid hale, den løfter som et flag, når den flygter. Den hører og lugter dig længe før, den ser dig, så hold dig i modvind. Kun bukkene har gevir.',
@@ -115,6 +117,9 @@ const da = {
     pheasant: 'Løber gennem dækket i stedet for at flyve, indtil den letter med et brag af vinger. Hanerne har rødt ansigt og kobberfarvet krop.',
     mallard: 'Den velkendte and fra søer og åer. Andrikken har grønt hoved. En andekalder lokker dem til; skyd med haglgevær.',
     wild_turkey: 'En stor fugl med skarpe øjne fra lyse skove. Hanerne slår hjul og kluk-kluk-kalder. Meget svær at liste sig ind på: Sid stille og kald.',
+    sea_bass: 'En sølvblank stimefisk fra kysthavet. Stimen spredes ved det mindste skræk, så svøm langsomt. Et harpungevær eller en harpun bringer den hjem; sigt lige bag gællelåget.',
+    bluefin_tuna: 'En torpedoformet kæmpe fra dybhavet, meget hurtig og meget stærk. Skyd pilen gennem hjertet bag gællerne, ellers trækker den dig rundt i linen, til den knækker.',
+    porbeagle: 'En kraftig haj fra koldt og dybt vand. Den jager havbars og andre fisk og kan gå efter en blødende dykker. Jag den fra en ubåd, eller hold afstand.',
     hunting_dog: 'En trofast makker. Tæm den med hjortekød, og blæs i en hundefløjte tæt på den for at sende den efter blodsporet fra et anskudt dyr. Den apporterer også nedlagte fugle.',
   },
   tags: {
@@ -126,6 +131,7 @@ const da = {
   habitats: {
     Savanna: 'Savanne', Jungle: 'Jungle', Desert: 'Ørken', Swamp: 'Sump', 'Mangrove swamp': 'Mangrovesump',
     Rivers: 'Floder', Beaches: 'Strande', Badlands: 'Badlands', Plains: 'Sletter', Forest: 'Skov', Taiga: 'Taiga', Mountains: 'Bjerge',
+    Oceans: 'Have', 'Deep oceans': 'Dybhav', 'Warm oceans': 'Lune have', 'Cold oceans': 'Kolde have',
   },
   items: {
     hunting_journal: 'Jagtdagbog', binoculars: 'Kikkert', wind_checker: 'Vindtester', deer_call: 'Hjortekalder', duck_call: 'Andekalder',
@@ -138,6 +144,10 @@ const da = {
     shotgun: 'Haglgevær', compound_bow: 'Compoundbue', cartridge_243: '.243-patron', cartridge_308: '.308-patron',
     cartridge_3006: '.30-06-patron', cartridge_338: '.338 Magnum-patron', shotgun_shell: 'Haglpatron', broadhead_arrow: 'Jagtpil',
     camo_netting: 'Camouflagenet', tree_stand: 'Jagtstige',
+    raw_fish_fillet: 'Rå fiskefilet', cooked_fish_fillet: 'Grillet fiskefilet', trophy_tuna: 'Tuntrofæ', trophy_shark_jaw: 'Hajkæbetrofæ',
+    harpoon: 'Harpun', speargun: 'Harpungevær', speargun_loaded: 'Harpungevær (ladt)', harpoon_bolt: 'Harpunpil', thrown_harpoon: 'Harpun',
+    snorkel: 'Snorkel', dive_mask: 'Dykkermaske', scuba_tank: 'Lufttank', dive_fins: 'Svømmefødder', dive_knife: 'Dykkerkniv',
+    mini_submarine: 'Mini-ubåd',
   },
 };
 

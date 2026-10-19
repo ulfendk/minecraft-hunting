@@ -1,7 +1,7 @@
 // Parametric body plans shared by several species. Each returns { bones, organs }:
 // the model bones and the organ boxes for the hit zones (see src/lib/hitmodel.mjs).
 import { eyes, legs4, nostrils } from './parts.mjs';
-import { headOrgans, neckOrgans, torsoOrgans } from './hitmodel.mjs';
+import { fishOrgans, headOrgans, neckOrgans, torsoOrgans } from './hitmodel.mjs';
 
 /**
  * Deer family (white-tailed deer, red deer, roe deer, moose). Sizes in pixels.
@@ -74,3 +74,57 @@ export function cervid({
 export const tine = (base, len, rot, mat = 'antler') => ({
   origin: [base[0], base[1], base[2]], size: [1, len, 1], mat, rotation: rot, pivot: [base[0] + 0.5, base[1], base[2] + 0.5],
 });
+
+/**
+ * Fish (sea bass, tuna, shark). The body is a box with a tapering tail section behind it,
+ * a forked caudal fin, a dorsal fin and two pectoral fins; the head (with an optional jaw)
+ * sits in front. Sizes in pixels; `lift` raises the whole fish off the bottom of its box.
+ * Bones: root, body, head, jaw (optional), tail, caudal_fin, dorsal_fin, fin_l, fin_r.
+ * Materials: scales, belly, head, fin, eye (marks), jaw/teeth when `teeth`.
+ */
+export function fishBody({
+  bodyW = 4, bodyH = 5, bodyL = 10, headW = 3, headH = 4, headL = 4, jaw = false, teeth = false,
+  tailW = 2, tailH = 3, tailL = 5, caudalH = 7, caudalL = 3, dorsalH = 3, dorsalL = 4, dorsal2 = 0,
+  pectoral = 3, lift = 1,
+} = {}) {
+  const bottom = lift;
+  const top = bottom + bodyH;
+  const cy = bottom + bodyH / 2;
+  const zf = -bodyL / 2, zb = bodyL / 2;
+  const body = { origin: [-bodyW / 2, bottom, zf], size: [bodyW, bodyH, bodyL], mat: 'scales' };
+  const hy = Math.round(cy - headH / 2);
+  const head = {
+    origin: [-headW / 2, hy + (jaw ? 1 : 0), zf - headL], size: [headW, headH - (jaw ? 1 : 0), headL], mat: 'head',
+    marks: eyes(headL, { back: 1, down: 1 }),
+  };
+  const ty = Math.round(cy - tailH / 2);
+  const bones = [
+    { name: 'root', pivot: [0, cy, 0] },
+    { name: 'body', parent: 'root', pivot: [0, cy, 0], cubes: [body] },
+    { name: 'head', parent: 'body', pivot: [0, cy, zf], cubes: [head] },
+    ...(jaw ? [{
+      name: 'jaw', parent: 'head', pivot: [0, hy + 1, zf],
+      cubes: [{ origin: [-(headW - 1) / 2, hy, zf - headL + 1], size: [headW - 1, 1, headL - 1], mat: teeth ? 'teeth' : 'head' }],
+    }] : []),
+    { name: 'tail', parent: 'body', pivot: [0, cy, zb], cubes: [{ origin: [-tailW / 2, ty, zb], size: [tailW, tailH, tailL], mat: 'scales' }] },
+    {
+      name: 'caudal_fin', parent: 'tail', pivot: [0, cy, zb + tailL],
+      cubes: [
+        { origin: [-0.5, Math.round(cy), zb + tailL - 1], size: [1, Math.ceil(caudalH / 2), caudalL], mat: 'fin', rotation: [-30, 0, 0], pivot: [0, cy, zb + tailL - 1] },
+        { origin: [-0.5, Math.round(cy) - Math.ceil(caudalH / 2), zb + tailL - 1], size: [1, Math.ceil(caudalH / 2), caudalL], mat: 'fin', rotation: [30, 0, 0], pivot: [0, cy, zb + tailL - 1] },
+      ],
+    },
+    {
+      name: 'dorsal_fin', parent: 'body', pivot: [0, top, zf + 2],
+      cubes: [
+        { origin: [-0.5, top, Math.round(zf + bodyL * 0.25)], size: [1, dorsalH, dorsalL], mat: 'fin', rotation: [-20, 0, 0], pivot: [0, top, Math.round(zf + bodyL * 0.25)] },
+        ...(dorsal2 ? [{ origin: [-0.5, top, Math.round(zf + bodyL * 0.7)], size: [1, dorsal2, 2], mat: 'fin' }] : []),
+      ],
+    },
+    { name: 'fin_l', parent: 'body', pivot: [bodyW / 2, bottom + 1, zf + 1], rotation: [0, 0, -40], cubes: [{ origin: [bodyW / 2, bottom + 1, zf + 1], size: [pectoral, 1, Math.max(2, pectoral - 1)], mat: 'fin', noHit: true }] },
+    { name: 'fin_r', parent: 'body', pivot: [-bodyW / 2, bottom + 1, zf + 1], rotation: [0, 0, 40], cubes: [{ origin: [-bodyW / 2 - pectoral, bottom + 1, zf + 1], size: [pectoral, 1, Math.max(2, pectoral - 1)], mat: 'fin', noHit: true }] },
+  ];
+  const organs = fishOrgans('body', body, 'head', head);
+  const at = { bottom, top, cy, zf, zb, body, head };
+  return { bones, organs, at };
+}

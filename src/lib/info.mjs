@@ -5,6 +5,7 @@ import { guide } from '../guide.mjs';
 export const BIOME_NAMES = {
   savanna: 'Savanna', jungle: 'Jungle', desert: 'Desert', swamp: 'Swamp', mangrove: 'Mangrove swamp',
   river: 'Rivers', beach: 'Beaches', mesa: 'Badlands', plains: 'Plains', forest: 'Forest', taiga: 'Taiga', mountains: 'Mountains',
+  ocean: 'Oceans', deep_ocean: 'Deep oceans', lukewarm_ocean: 'Warm oceans', cold_ocean: 'Cold oceans',
 };
 
 export const TAGS = {
@@ -33,7 +34,7 @@ export function tagIds(a) {
   else if (a.attack) t.push('fights_back');
   if (a.sleeps === 'day') t.push('nocturnal');
   if (a.movement === 'fly') t.push('flies');
-  if (a.movement === 'amphibious') t.push('swims');
+  if (a.movement === 'amphibious' || a.movement === 'swim' || a.movement === 'dolphin') t.push('swims');
   if (a.climbs) t.push('climbs');
   if (!a.attack && !a.fleesFrom?.length && !a.game && !a.companion) t.push('gentle');
   return t;

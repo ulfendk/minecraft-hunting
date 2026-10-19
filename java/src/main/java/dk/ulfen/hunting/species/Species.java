@@ -100,7 +100,8 @@ public record Species(
 
 	public record Sounds(String ambient, String hurt, String death, float pitchMin, float pitchMax, int interval) {}
 
-	public record Spawn(List<String> biomes, int weight, int min, int max, boolean water) {}
+	/** `minY`/`maxY`: the depth band water animals spawn in. */
+	public record Spawn(List<String> biomes, int weight, int min, int max, boolean water, int minY, int maxY) {}
 
 	public boolean isMount() {
 		return "mount".equals(kind);

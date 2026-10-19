@@ -30,7 +30,7 @@ export const foodKey = (item) => `${NS}.food.${item.replace(/^.*:/, '')}`;
 const DA_EGG = {
   white_tailed_deer: 'Hvidhalehjorte', red_deer: 'Kronhjorte', roe_deer: 'Rådyrs', moose: 'Elge', wild_boar: 'Vildsvine',
   black_bear: 'Sortbjørne', gray_wolf: 'Ulve', red_fox: 'Ræve', hare: 'Hare', pheasant: 'Fasan', mallard: 'Gråande',
-  wild_turkey: 'Kalkun', hunting_dog: 'Jagthunde',
+  wild_turkey: 'Kalkun', hunting_dog: 'Jagthunde', sea_bass: 'Havbars', bluefin_tuna: 'Tun', porbeagle: 'Sildehaj',
 };
 
 /** English and Danish for everything the scripts and the Java mod show. */
@@ -91,6 +91,7 @@ const UI = {
   'hunting.zone.spine': ['Spine', 'Rygrad'],
   'hunting.zone.heart': ['Heart', 'Hjerte'],
   'hunting.zone.lungs': ['Lungs', 'Lunger'],
+  'hunting.zone.gills': ['Gills', 'Gæller'],
   'hunting.zone.liver': ['Liver', 'Lever'],
   'hunting.zone.stomach': ['Stomach', 'Mave'],
   'hunting.zone.shoulder': ['Shoulder', 'Bov'],
@@ -107,6 +108,7 @@ const UI = {
   'hunting.blood.dark': ['dark red (liver)', 'mørkerødt (lever)'],
   'hunting.blood.gut': ['dark, with stomach contents', 'mørkt, med maveindhold'],
   'hunting.blood.little': ['a few drops', 'nogle få dråber'],
+  'hunting.blood.gills': ['a cloud of bright red blood (gills)', 'en sky af lyserødt blod (gæller)'],
   // HUD
   'hunting.hud.scope': ['%sx · %s m · wind %s', '%sx · %s m · vind %s'],
   'hunting.hud.steady': ['§aHolding breath', '§aHolder vejret'],
@@ -135,10 +137,41 @@ const UI = {
   'hunting.scent.applied': ['Scent eliminator applied: game can hardly smell you for 5 minutes.', 'Duftfjerner påført: Vildtet kan næsten ikke lugte dig i 5 minutter.'],
   'hunting.scent.worn_off': ['Your scent eliminator has worn off.', 'Din duftfjerner virker ikke længere.'],
   'hunting.call.used': ['You blow the %s. Anything nearby that answers to it will come closer.', 'Du blæser i %s. Dyr i nærheden, der reagerer på den, kommer nærmere.'],
-  'hunting.dress.need_knife': ['You need a hunting knife to field dress this animal.', 'Du skal bruge en jagtkniv for at brække dette dyr.'],
+  'hunting.dress.need_knife': ['You need a knife to field dress this animal.', 'Du skal bruge en kniv for at brække dette dyr.'],
   'hunting.dress.done': ['Field dressed: %s', 'Brækket: %s'],
   'hunting.trophy.new': ['§6New trophy!§r %s, score %s', '§6Nyt trofæ!§r %s, %s point'],
-  'hunting.carcass.near': ['A %s lies here. Use a hunting knife on it.', 'Her ligger en %s. Brug en jagtkniv på den.'],
+  'hunting.carcass.near': ['A %s lies here. Use a knife on it.', 'Her ligger en %s. Brug en kniv på den.'],
+  // Spearfishing
+  'hunting.hud.underwater_gun': ['§cA firearm is useless under water: use a harpoon or a speargun.', '§cEt skydevåben er ubrugeligt under vand: brug en harpun eller et harpungevær.'],
+  'hunting.hud.speargun_loading': ['Pulling back the bands...', 'Spænder elastikkerne...'],
+  'hunting.hud.speargun_loaded': ['§aSpeargun loaded', '§aHarpungeværet er ladt'],
+  'hunting.hud.harpoon_weak': ['§eA harpoon is slow and weak out of the water.', '§eEn harpun er langsom og svag over vandet.'],
+  'hunting.line.hooked': ['§a%s on the line!§r Hold sneak to reel it in.', '§a%s på linen!§r Hold snig nede for at hale den ind.'],
+  'hunting.line.status': ['Line %s / %s m · %s', 'Line %s / %s m · %s'],
+  'hunting.line.slack': ['§aslack', '§aslap'],
+  'hunting.line.tight': ['§etight', '§estram'],
+  'hunting.line.breaking': ['§cabout to snap!', '§cved at knække!'],
+  'hunting.line.snapped': ['§cThe line snapped!', '§cLinen knækkede!'],
+  'hunting.line.landed': ['Landed: %s', 'Halet ind: %s'],
+  'hunting.line.released': ['You let go of the line.', 'Du slipper linen.'],
+  // Diving
+  'hunting.hud.tank': ['Air tank %s s', 'Lufttank %s s'],
+  'hunting.hud.tank_low': ['§eAir tank %s s', '§eLufttank %s s'],
+  'hunting.hud.tank_empty': ['§cYour air tank is empty: surface!', '§cDin lufttank er tom: op til overfladen!'],
+  'hunting.hud.snorkel': ['Breathing through the snorkel', 'Trækker vejret gennem snorklen'],
+  // Mini submarine
+  'action.interact.hunting.board': ['Board', 'Stig om bord'],
+  'hunting.sub.hud': ['Battery %s%% · depth %s m · %s m/s', 'Batteri %s%% · dybde %s m · %s m/s'],
+  'hunting.sub.bolts': ['Bolts %s', 'Pile %s'],
+  'hunting.sub.lights': ['Lights on', 'Lys tændt'],
+  'hunting.sub.flat': ['§cThe battery is flat: the submarine floats up.', '§cBatteriet er fladt: ubåden stiger op.'],
+  'hunting.sub.charged': ['Battery charged: %s%%', 'Batteriet er ladet op: %s%%'],
+  'hunting.sub.full': ['The battery is already full.', 'Batteriet er allerede fuldt.'],
+  'hunting.sub.no_room': ['There is no room for the submarine here.', 'Der er ikke plads til ubåden her.'],
+  'hunting.sub.reloading': ['Launcher reloading...', 'Harpunkanonen lader...'],
+  'hunting.sub.no_bolts': ['§cNo harpoon bolts for the launcher', '§cIngen harpunpile til harpunkanonen'],
+  'hunting.sub.help': ['§6Mini submarine:§r move forward to go where you look, jump to rise, sneak to get out. Use harpoon bolts to fire the launcher, redstone to charge the battery.', '§6Mini-ubåd:§r gå frem for at sejle derhen, du kigger, hop for at stige, snig for at stige ud. Brug harpunpile for at skyde med harpunkanonen og rødsten for at lade batteriet op.'],
+  'hunting.sub.help_java': ['§6Mini submarine:§r W/S: go where you look · Space: rise · %s: dive · %s: lights · right-click with harpoon bolts: fire · sneak: get out. Redstone charges the battery.', '§6Mini-ubåd:§r W/S: sejl derhen, du kigger · mellemrum: stig · %s: dyk · %s: lys · højreklik med harpunpile: skyd · snig: stig ud. Rødsten lader batteriet op.'],
   // Dog
   'hunting.dog.tracking': ['Your dog picks up the trail!', 'Din hund fanger sporet!'],
   'hunting.dog.no_trail': ['Your dog finds no fresh trail.', 'Din hund finder intet friskt spor.'],
@@ -149,6 +182,8 @@ const UI = {
   'key.category.hunting.hunting': ['Realistic Hunting', 'Realistisk jagt'],
   'key.hunting.report': ['Last shot report', 'Seneste skudrapport'],
   'key.hunting.zoom': ['Scope zoom', 'Kikkertsigtets zoom'],
+  'key.hunting.sub_down': ['Submarine: dive', 'Ubåd: dyk'],
+  'key.hunting.sub_lights': ['Submarine: lights', 'Ubåd: lys'],
 };
 
 /**
@@ -161,7 +196,7 @@ export function langEntries(locale, { animals, items, blocks, extraEntities, des
   const pick = (pair) => pair[Math.max(0, i)];
   const out = [];
   out.push(['pack.description', da
-    ? `Realistisk jagt: hjorte, elge, vildsvin, bjørne og vildtfugle, der ser, hører og lugter dig, rifler med kikkertsigte og en skudrapport med røntgenbillede (v${version})`
+    ? `Realistisk jagt: hjorte, elge, vildsvin, bjørne, vildtfugle og fisk, der ser, hører og lugter dig, rifler med kikkertsigte, harpunfiskeri og en skudrapport med røntgenbillede (v${version})`
     : `${description} (v${version})`]);
 
   for (const a of animals) {

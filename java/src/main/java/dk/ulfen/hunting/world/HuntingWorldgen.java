@@ -11,6 +11,7 @@ import net.fabricmc.fabric.api.biome.v1.BiomeSelectors;
 import net.fabricmc.fabric.api.tag.convention.v2.ConventionalBiomeTags;
 import net.minecraft.tags.BiomeTags;
 import net.minecraft.world.entity.MobCategory;
+import net.minecraft.world.level.biome.Biomes;
 
 /** Natural spawns, from the biome groups used in the shared specs. */
 public final class HuntingWorldgen {
@@ -24,6 +25,10 @@ public final class HuntingWorldgen {
 			case "swamp" -> BiomeSelectors.tag(ConventionalBiomeTags.IS_SWAMP);
 			case "river" -> BiomeSelectors.tag(BiomeTags.IS_RIVER);
 			case "mountains" -> BiomeSelectors.tag(BiomeTags.IS_MOUNTAIN);
+			case "ocean" -> BiomeSelectors.tag(BiomeTags.IS_OCEAN);
+			case "deep_ocean" -> BiomeSelectors.tag(BiomeTags.IS_DEEP_OCEAN);
+			case "lukewarm_ocean" -> BiomeSelectors.includeByKey(Biomes.LUKEWARM_OCEAN, Biomes.DEEP_LUKEWARM_OCEAN, Biomes.WARM_OCEAN);
+			case "cold_ocean" -> BiomeSelectors.includeByKey(Biomes.COLD_OCEAN, Biomes.DEEP_COLD_OCEAN);
 			default -> throw new IllegalArgumentException("Unknown biome group " + name);
 		};
 	}
@@ -32,7 +37,8 @@ public final class HuntingWorldgen {
 		for (Species s : SpeciesRegistry.all()) {
 			for (Species.Spawn spawn : s.spawns()) {
 				Predicate<BiomeSelectionContext> selector = spawn.biomes().stream().map(HuntingWorldgen::biomes).reduce(Predicate::or).orElse(c -> false);
-				BiomeModifications.addSpawn(selector, MobCategory.CREATURE, HuntingRegistry.ANIMALS.get(s.id()), spawn.weight(), spawn.min(), spawn.max());
+				MobCategory category = spawn.water() ? MobCategory.WATER_CREATURE : MobCategory.CREATURE;
+				BiomeModifications.addSpawn(selector, category, HuntingRegistry.ANIMALS.get(s.id()), spawn.weight(), spawn.min(), spawn.max());
 			}
 		}
 	}

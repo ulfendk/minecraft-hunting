@@ -44,7 +44,7 @@ export function defaultZone(boneName) {
   const n = boneName.toLowerCase();
   if (/antler|horn|tusk/.test(n)) return 'antler';
   if (/leg|foot|paw|hoof|toe/.test(n)) return 'leg';
-  if (/tail/.test(n)) return 'tail';
+  if (/tail|fin|fluke/.test(n)) return 'tail';
   if (/neck/.test(n)) return 'neck';
   if (/head|ear|jaw|snout|muzzle|beak|bill|nose|wattle|snood|dewlap|bell/.test(n)) return 'jaw';
   return 'muscle';
@@ -105,8 +105,9 @@ export function buildHitModel(a, { exclude = new Set() } = {}) {
   }
 
   const heart = (a.organs ?? []).find((o) => o.zone === 'heart');
-  const lungs = (a.organs ?? []).find((o) => o.zone === 'lungs');
-  if (!heart || !lungs) throw new Error(`${a.id}: needs heart and lungs organs`);
+  // Fish breathe with gills instead of lungs.
+  const lungs = (a.organs ?? []).find((o) => o.zone === 'lungs') ?? (a.organs ?? []).find((o) => o.zone === 'gills');
+  if (!heart || !lungs) throw new Error(`${a.id}: needs heart and lungs (or gills) organs`);
   const vital = applyM(world[heart.bone], heart.origin.map((v, i) => v + heart.size[i] / 2)).map(round);
   const vitalRadius = round(Math.max(lungs.size[1], lungs.size[2]) / 2);
 
@@ -160,4 +161,26 @@ export function headOrgans(bone, head, { f = [0.45, 0.9], g = [0.4, 0.85], w = 0
   const [x0, y0, z0] = head.origin;
   const [W, H, L] = head.size;
   return [{ bone, zone: 'brain', origin: [x0 + W * (1 - w) / 2, y0 + H * g[0], z0 + L * f[0]], size: [W * w, H * (g[1] - g[0]), L * (f[1] - f[0])] }];
+}
+
+/**
+ * Organ boxes for a fish. `body` is the main body cube on bone `bone` (front at the low-z
+ * end), `head` the head cube on bone `headBone`. The gills sit at the back of the head, the
+ * heart low just behind them, the spine runs along the upper third of the body.
+ */
+export function fishOrgans(bone, body, headBone, head) {
+  const [x0, y0, z0] = body.origin;
+  const [W, H, L] = body.size;
+  const [hx, hy, hz] = head.origin;
+  const [HW, HH, HL] = head.size;
+  const box = (b, zone, origin, size) => ({ bone: b, zone, origin, size });
+  return [
+    box(headBone, 'brain', [hx + HW * 0.25, hy + HH * 0.5, hz + HL * 0.45], [HW * 0.5, HH * 0.32, HL * 0.3]),
+    box(headBone, 'gills', [hx + HW * 0.08, hy + HH * 0.12, hz + HL * 0.72], [HW * 0.84, HH * 0.62, HL * 0.28]),
+    box(bone, 'gills', [x0 + W * 0.1, y0 + H * 0.15, z0], [W * 0.8, H * 0.6, L * 0.06]),
+    box(bone, 'heart', [x0 + W * 0.28, y0 + H * 0.08, z0 + L * 0.04], [W * 0.44, H * 0.3, L * 0.1]),
+    box(bone, 'spine', [x0 + W * 0.36, y0 + H * 0.62, z0], [W * 0.28, H * 0.2, L]),
+    box(bone, 'liver', [x0 + W * 0.15, y0 + H * 0.1, z0 + L * 0.14], [W * 0.7, H * 0.34, L * 0.18]),
+    box(bone, 'stomach', [x0 + W * 0.2, y0 + H * 0.12, z0 + L * 0.32], [W * 0.6, H * 0.36, L * 0.26]),
+  ];
 }

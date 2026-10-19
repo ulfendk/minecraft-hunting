@@ -1,7 +1,7 @@
 {
   "name": "minecraft-hunting",
-  "version": "0.1.0",
-  "description": "Realistic Hunting: a Minecraft Bedrock add-on and Java mod with deer, moose, boar, bears and game birds, scoped rifles, wind and an x-ray shot report",
+  "version": "0.2.0",
+  "description": "Realistic Hunting: a Minecraft Bedrock add-on and Java mod with deer, moose, boar, bears, game birds and fish, scoped rifles, spearfishing, wind and an x-ray shot report",
   "private": true,
   "type": "module",
   "scripts": {

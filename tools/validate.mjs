@@ -296,6 +296,28 @@ for (const n of ['underpowered', 'meat_damage']) scriptKeys.add(`hunting.report.
 for (const f of Object.values(data.FIREARMS)) scriptKeys.add(`item.hunting:${f.ammo}.name`);
 for (const k of scriptKeys) if (!english.has(k)) err(`scripts use missing lang key ${k}`);
 
+// Spearfishing: the knives, harpoons, ammunition and the submarine's launcher are real items,
+// every harpoon projectile has a calibre, and the submarine's item component is registered.
+for (const k of data.KNIVES) if (!customItems.has(k)) err(`KNIVES: unknown item ${k}`);
+for (const [id, h] of Object.entries(data.HARPOONS)) {
+  if (!customItems.has(`hunting:${id}`)) err(`HARPOONS: unknown item hunting:${id}`);
+  if (!data.CALIBRES[h.calibre]) err(`HARPOONS.${id}: unknown calibre ${h.calibre}`);
+  if (!bpEntities.has(`hunting:${h.projectile}`)) err(`HARPOONS.${id}: unknown projectile hunting:${h.projectile}`);
+  if (h.ammo && !customItems.has(`hunting:${h.ammo}`)) err(`HARPOONS.${id}: unknown ammo hunting:${h.ammo}`);
+}
+if (!customItems.has(`hunting:${data.SUB.launcher.ammo}`)) err(`SUB.launcher: unknown ammo ${data.SUB.launcher.ammo}`);
+{
+  const shooting = await readFile(join(BP, 'scripts', 'shooting.js'), 'utf8');
+  for (const id of bpEntities.keys()) {
+    const e = bpEntities.get(id).json['minecraft:entity'];
+    if (e.components['minecraft:projectile'] && !shooting.includes(`'${id}'`)) err(`${id}: projectile has no calibre in scripts/shooting.js`);
+  }
+  const placers = new Set();
+  for (const item of customItems.values()) for (const k of Object.keys(item['minecraft:item']?.components ?? {})) if (k.startsWith('hunting:')) placers.add(k);
+  const scripts = (await Promise.all((await files(join(BP, 'scripts'), '.js')).map((f) => readFile(f, 'utf8')))).join('\n');
+  for (const c of placers) if (!scripts.includes(`'${c}'`)) err(`item component ${c} is never registered by the scripts`);
+}
+
 // HUD overlays: every texture exists.
 const hud = await json(join(RP, 'ui', 'hud_screen.json'));
 const hudTextures = new Set();

@@ -51,7 +51,7 @@ const BEDROCK_TO_JAVA_SOUNDS = {
   'mob.frog.ambient': 'entity.frog.ambient', 'mob.frog.hurt': 'entity.frog.hurt', 'mob.frog.death': 'entity.frog.death',
   'mob.sniffer.idle': 'entity.sniffer.idle', 'mob.sniffer.hurt': 'entity.sniffer.hurt', 'mob.sniffer.death': 'entity.sniffer.death',
 };
-const VANILLA_PREY = new Set(['pig', 'chicken', 'parrot', 'rabbit', 'sheep', 'cow']);
+const VANILLA_PREY = new Set(['pig', 'chicken', 'parrot', 'rabbit', 'sheep', 'cow', 'cod', 'salmon', 'tropical_fish']);
 const ITEM_RENAMES = { deadbush: 'dead_bush' };
 
 const javaItem = (id) => {
@@ -155,7 +155,7 @@ function speciesRecord(a, animals, animNames) {
     idle: a.client?.idle ?? ['idle'],
     runSpeed: a.client?.runSpeed ?? 5,
     maleBones: a.maleBones ?? [],
-    spawns: (a.spawn ?? []).map((sp) => ({ biomes: sp.biomes, weight: sp.weight ?? 5, min: sp.group?.[0] ?? 1, max: sp.group?.[1] ?? 1, water: !!sp.water })),
+    spawns: (a.spawn ?? []).map((sp) => ({ biomes: sp.biomes, weight: sp.weight ?? 5, min: sp.group?.[0] ?? 1, max: sp.group?.[1] ?? 1, water: !!sp.water, minY: sp.height?.[0] ?? -64, maxY: sp.height?.[1] ?? 320 })),
     egg: a.egg,
     companion: !!a.companion,
     game: a.game ? {
@@ -248,7 +248,7 @@ function blockModel(block) {
   return { textures: { all: `${NS}:block/${block.id}`, particle: `${NS}:block/${block.id}` }, elements };
 }
 
-export async function buildJava({ animals, geos, anims, textures, items, blocks, recipes, projectiles, langs, icon, xrays, armor, calibres, firearms, zones, priority, OUT }) {
+export async function buildJava({ animals, geos, anims, textures, items, blocks, recipes, projectiles, vehicles, langs, icon, xrays, armor, calibres, firearms, zones, priority, harpoons, line, knives, dive, submarine, OUT }) {
   const R = OUT;
   await rm(R, { recursive: true, force: true });
   const A = join(R, 'assets', NS);
@@ -276,22 +276,45 @@ export async function buildJava({ animals, geos, anims, textures, items, blocks,
     await write(join(A, 'geckolib', 'animations', 'entity', `${p.id}.animation.json`), { format_version: '1.8.0', animations: { [`animation.hunting.${p.id}.idle`]: { loop: true, bones: {} } } });
   }
 
+  // The submarine: a GeckoLib model like the animals.
+  for (const id of vehicles) {
+    await write(join(A, 'geckolib', 'models', 'entity', `${id}.geo.json`), geos[id]);
+    await write(join(A, 'geckolib', 'animations', 'entity', `${id}.animation.json`), anims[id]);
+    await write(join(A, 'textures', 'entity', `${id}.png`), textures[id]);
+  }
+
   for (const item of items) {
     await write(join(A, 'textures', 'item', `${item.id}.png`), item.icon);
-    const handheld = /knife|rifle|shotgun|bow/.test(item.id);
-    await itemModel(A, item.id, handheld ? 'minecraft:item/handheld' : 'minecraft:item/generated');
+    const handheld = /knife|rifle|shotgun|bow|harpoon|speargun/.test(item.id);
+    const parent = handheld ? 'minecraft:item/handheld' : 'minecraft:item/generated';
+    // Bedrock-only items (the loaded speargun) are only a model here: see the speargun below.
+    if (item.bedrockOnly) await write(join(A, 'models', 'item', `${item.id}.json`), { parent, textures: { layer0: `${NS}:item/${item.id}` } });
+    else await itemModel(A, item.id, parent);
   }
-  // Ghillie suit: vanilla-style armour layers.
-  await write(join(A, 'textures', 'entity', 'equipment', 'humanoid', 'ghillie.png'), armor[1]);
-  await write(join(A, 'textures', 'entity', 'equipment', 'humanoid_leggings', 'ghillie.png'), armor[2]);
-  await write(join(A, 'equipment', 'ghillie.json'), { layers: { humanoid: [{ texture: `${NS}:ghillie` }], humanoid_leggings: [{ texture: `${NS}:ghillie` }] } });
+  // The speargun shows its bolt while loaded (Java keeps it in the charged-projectiles component).
+  await write(join(A, 'items', 'speargun.json'), {
+    model: {
+      type: 'minecraft:select', property: 'minecraft:charge_type',
+      cases: [{ when: 'arrow', model: { type: 'minecraft:model', model: `${NS}:item/speargun_loaded` } }],
+      fallback: { type: 'minecraft:model', model: `${NS}:item/speargun` },
+    },
+  });
+  // Every knife can field dress a carcass.
+  await write(join(D, 'tags', 'item', 'knives.json'), { values: knives.map((k) => `${NS}:${k}`) });
+
+  // Armour sets (ghillie suit, dive gear): vanilla-style armour layers.
+  for (const [set, layers] of Object.entries(armor)) {
+    await write(join(A, 'textures', 'entity', 'equipment', 'humanoid', `${set}.png`), layers[1]);
+    await write(join(A, 'textures', 'entity', 'equipment', 'humanoid_leggings', `${set}.png`), layers[2]);
+    await write(join(A, 'equipment', `${set}.json`), { layers: { humanoid: [{ texture: `${NS}:${set}` }], humanoid_leggings: [{ texture: `${NS}:${set}` }] } });
+  }
 
   // X-ray images for the shot report screen.
   for (const [name, png] of Object.entries(xrays)) await write(join(A, 'textures', 'gui', 'xray', `${name}.png`), png);
 
   // Shared hunting data: zones, calibres, firearms, and test vectors computed by the
   // JavaScript implementation that the Java game tests compare against.
-  await write(join(D, 'hunting.json'), { zones, priority, calibres, firearms });
+  await write(join(D, 'hunting.json'), { zones, priority, calibres, firearms, harpoons, line, dive, submarine });
   await write(join(D, 'test_vectors.json'), testVectors(animals, zones, priority, calibres));
 
   for (const block of blocks) {

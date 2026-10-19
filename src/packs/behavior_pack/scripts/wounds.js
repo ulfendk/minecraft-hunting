@@ -1,8 +1,8 @@
 // What a hit does to a game animal: drops it on the spot, lets it run and bleed out, or
 // leaves it wounded. Wounded animals leave a blood trail. A dead game animal stays as a
-// carcass until it is field dressed with a hunting knife (meat, hide and trophy).
+// carcass until it is field dressed with a knife (meat, hide and trophy).
 import { ItemStack, MolangVariableMap, system, world } from '@minecraft/server';
-import { ZONES } from './data.js';
+import { KNIVES, ZONES } from './data.js';
 import { getState, isBaby, isMale, nameOf, setState, sizeOf, speciesOf, STATE, weightOf } from './game.js';
 import { bloodOf, recordTrophy, shotsOf } from './report.js';
 import { spook } from './senses.js';
@@ -11,7 +11,7 @@ import { heldItem, wearSelected } from './util.js';
 const bleeding = new Map(); // entity id -> { until, blood, shooter, shotId, drip, recoverAt }
 const trails = []; // { dimension, location, until, blood }
 const TRAIL_TICKS = 20 * 60 * 10;
-const DRIP = { bright: 10, frothy: 10, dark: 14, gut: 24, little: 40, none: 0 };
+const DRIP = { bright: 10, frothy: 10, gills: 10, dark: 14, gut: 24, little: 40, none: 0 };
 
 const GRADE_FACTOR = { perfect: 1, good: 0.95, poor: 0.85, unethical: 0.7, miss: 0.7 };
 
@@ -154,7 +154,7 @@ function fieldDress(player, carcass) {
   const a = speciesOf(carcass);
   if (!a) return;
   const held = heldItem(player);
-  if (held?.typeId !== 'hunting:hunting_knife') {
+  if (!KNIVES.includes(held?.typeId)) {
     player.onScreenDisplay.setActionBar({ translate: 'hunting.dress.need_knife' });
     return;
   }
@@ -168,7 +168,7 @@ function fieldDress(player, carcass) {
   const spoiled = shot?.notes?.includes('meat_damage');
   for (const l of a.loot ?? []) {
     let n = l.min + Math.floor(Math.random() * (l.max - l.min + 1));
-    if (spoiled && /meat|venison|bird/.test(l.item)) n = Math.floor(n / 2);
+    if (spoiled && /meat|venison|bird|fillet/.test(l.item)) n = Math.floor(n / 2);
     if (baby) n = Math.ceil(n / 3);
     if (n > 0) carcass.dimension.spawnItem(new ItemStack(l.item.includes(':') ? l.item : `minecraft:${l.item}`, n), loc);
   }

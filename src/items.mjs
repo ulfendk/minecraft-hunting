@@ -2,6 +2,18 @@
 import { NS } from './lib/constants.mjs';
 import { pixelIcon } from './lib/texture.mjs';
 import { icon, rows, weaponItems, weaponRecipes } from './weapons.mjs';
+import { divingItems, divingRecipes } from './diving.mjs';
+import { submarineItem, submarineRecipe } from './submarine.mjs';
+
+/** Every item that can field dress a carcass. */
+export const KNIVES = ['hunting_knife', 'dive_knife'];
+
+/** Armour sets: what repairs them and how long they last (Bedrock durability). */
+export const ARMOR_SETS = {
+  ghillie: { repair: 'minecraft:vine', durability: 120 },
+  dive: { repair: 'minecraft:leather', durability: 200 },
+  snorkel: { repair: 'minecraft:leather', durability: 200 },
+};
 
 const MEAT = { '.': null, o: '#5a1f1a', r: '#a8343a', p: '#d06a6b', w: '#f0d9c8' };
 const COOKED = { '.': null, o: '#3b2213', r: '#7a4a2b', p: '#a8703f', w: '#e7c79a' };
@@ -37,6 +49,29 @@ const drumstick = [
   '.......oww......',
   '........ww......',
   '.......w..w.....',
+  '................',
+  '................',
+  '................',
+];
+
+const FILLET = {
+  raw: { o: '#a04a3a', r: '#e08a78', p: '#f4b8a8', w: '#f8e8e0' },
+  cooked: { o: '#6a3a1a', r: '#c08a4a', p: '#e0b070', w: '#f0d8b0' },
+};
+const fillet = [
+  '................',
+  '................',
+  '................',
+  '................',
+  '..oooooooooo....',
+  '.orrrpprrrrroo..',
+  'orrpprrrrwrrrro.',
+  'orrrrrrwwrrrrro.',
+  '.orrrrrrrrrppro.',
+  '..oorrrrrrrroo..',
+  '....oooooooo....',
+  '................',
+  '................',
   '................',
   '................',
   '................',
@@ -215,22 +250,22 @@ export const items = [
   },
   {
     id: 'ghillie_hood', name: 'Ghillie Hood', category: 'equipment', stack: 1,
-    armor: { slot: 'head', protection: 1, geometry: 'helmet' },
+    armor: { set: 'ghillie', slot: 'head', protection: 1, geometry: 'helmet' },
     icon: icon(rows(['................', '................', '....glgldg......', '...gllggllg.....', '..glgbgglglg....', '..lggl..ggdl....', '..gld....lgg....', '..dg......lg....', '..g........g....', '................', '................', '................', '................', '................', '................', '................'], ghillie)),
   },
   {
     id: 'ghillie_jacket', name: 'Ghillie Jacket', category: 'equipment', stack: 1,
-    armor: { slot: 'chest', protection: 2, geometry: 'chestplate' },
+    armor: { set: 'ghillie', slot: 'chest', protection: 2, geometry: 'chestplate' },
     icon: icon(rows(['................', '..gl......lg....', '.gllg....glgl...', '.glggllglgglg...', '.dlglgglgldgl...', '..dlgbglgglg....', '...glgglgldg....', '...gglglgglg....', '...lgdglglgg....', '...gglgglgdl....', '...lglgdgglg....', '...gglglgglg....', '................', '................', '................', '................'], ghillie)),
   },
   {
     id: 'ghillie_trousers', name: 'Ghillie Trousers', category: 'equipment', stack: 1,
-    armor: { slot: 'legs', protection: 2, geometry: 'leggings' },
+    armor: { set: 'ghillie', slot: 'legs', protection: 2, geometry: 'leggings' },
     icon: icon(rows(['................', '...glglglgg.....', '...gglgdglg.....', '...lgdg.lgd.....', '...gglg.glg.....', '...lgg..gdl.....', '...glg..lgg.....', '...gdl..glg.....', '...lgg..ggl.....', '...glg..lgd.....', '................', '................', '................', '................', '................', '................'], ghillie)),
   },
   {
     id: 'ghillie_boots', name: 'Ghillie Boots', category: 'equipment', stack: 1,
-    armor: { slot: 'feet', protection: 1, geometry: 'boots' },
+    armor: { set: 'ghillie', slot: 'feet', protection: 1, geometry: 'boots' },
     icon: icon(rows(['................', '................', '................', '................', '................', '...glg..gld.....', '...lgd..dgl.....', '...glg..glg.....', '..glgb..bglg....', '..bbbb..bbbb....', '................', '................', '................', '................', '................', '................'], ghillie)),
   },
   { id: 'raw_venison', name: 'Raw Venison', category: 'nature', food: { nutrition: 4, saturation: 0.3 }, icon: pixelIcon(steak, MEAT) },
@@ -239,6 +274,8 @@ export const items = [
   { id: 'cooked_game_meat', name: 'Cooked Game Meat', category: 'nature', food: { nutrition: 8, saturation: 0.8 }, icon: pixelIcon(steak, { ...COOKED, r: '#8a4f2b' }) },
   { id: 'raw_game_bird', name: 'Raw Game Bird', category: 'nature', food: { nutrition: 2, saturation: 0.3 }, icon: pixelIcon(drumstick, { ...MEAT, r: '#e0a090', p: '#f0c0b0' }) },
   { id: 'cooked_game_bird', name: 'Roast Game Bird', category: 'nature', food: { nutrition: 7, saturation: 0.7 }, icon: pixelIcon(drumstick, { ...COOKED, r: '#b0703a', p: '#d09050' }) },
+  { id: 'raw_fish_fillet', name: 'Raw Fish Fillet', category: 'nature', food: { nutrition: 2, saturation: 0.2 }, icon: pixelIcon(fillet, { '.': null, ...FILLET.raw }) },
+  { id: 'cooked_fish_fillet', name: 'Grilled Fish Fillet', category: 'nature', food: { nutrition: 6, saturation: 0.8 }, icon: pixelIcon(fillet, { '.': null, ...FILLET.cooked }) },
   {
     id: 'deer_hide',
     name: 'Deer Hide',
@@ -278,9 +315,51 @@ export const items = [
       '................',
     ], { a: c, w: '#7a4a26', b: '#2a1a10' })),
   })),
+  {
+    id: 'trophy_tuna', name: 'Mounted Tuna Trophy', category: 'items', stack: 1,
+    icon: icon(rows([
+      '................',
+      '................',
+      '..............t.',
+      '.............tt.',
+      '...bbbbbbbbbbtt.',
+      '..bbbbbbbbbbbt..',
+      '.ebbbbbbbbbbbtt.',
+      '.ssssssssssss.tt',
+      '..ssssssssss....',
+      '...ssssssss.....',
+      '................',
+      '.wwwwwwwwwwwwww.',
+      '.wwwwwwwwwwwwww.',
+      '................',
+      '................',
+      '................',
+    ], { b: '#1c2c4a', s: '#c8d0d8', t: '#2a3550', e: '#0a0a0a', w: '#7a4a26' })),
+  },
+  {
+    id: 'trophy_shark_jaw', name: 'Shark Jaw Trophy', category: 'items', stack: 1,
+    icon: icon(rows([
+      '................',
+      '...pppppppppp...',
+      '..pwpwpwpwpwpp..',
+      '.pp..........pp.',
+      '.pw..........wp.',
+      '.pp..........pp.',
+      '.pw..........wp.',
+      '.pp..........pp.',
+      '..pwpwpwpwpwpp..',
+      '...pppppppppp...',
+      '................',
+      '................',
+      '................',
+      '................',
+      '................',
+      '................',
+    ], { p: '#d8c8b8', w: '#fafaf6' })),
+  },
 ];
 
-items.push(...weaponItems);
+items.push(...weaponItems, ...divingItems, submarineItem);
 
 const shapeless = (id, ingredients, result = `${NS}:${id}`, count = 1) => ({
   'minecraft:recipe_shapeless': {
@@ -327,11 +406,12 @@ export const recipes = [
   furnace('cooked_venison', 'raw_venison'),
   furnace('cooked_game_meat', 'raw_game_meat'),
   furnace('cooked_game_bird', 'raw_game_bird'),
+  furnace('cooked_fish_fillet', 'raw_fish_fillet'),
   shapeless('leather_from_deer_hide', [`${NS}:deer_hide`], 'minecraft:leather', 2),
   shapeless('leather_from_pelt', [`${NS}:pelt`], 'minecraft:leather', 1),
 ];
 
-recipes.push(...weaponRecipes);
+recipes.push(...weaponRecipes, ...divingRecipes, submarineRecipe);
 
 const ARMOR_SLOTS = { head: 'slot.armor.head', chest: 'slot.armor.chest', legs: 'slot.armor.legs', feet: 'slot.armor.feet' };
 const ENCHANT_SLOTS = { head: 'armor_head', chest: 'armor_torso', legs: 'armor_legs', feet: 'armor_feet' };
@@ -350,10 +430,11 @@ export function buildItem(item) {
     });
   }
   if (item.armor) {
+    const set = ARMOR_SETS[item.armor.set];
     Object.assign(components, {
       'minecraft:wearable': { slot: ARMOR_SLOTS[item.armor.slot], protection: item.armor.protection },
-      'minecraft:durability': { max_durability: 120 },
-      'minecraft:repairable': { repair_items: [{ items: ['minecraft:vine'], repair_amount: 40 }] },
+      'minecraft:durability': { max_durability: set.durability },
+      ...(item.armor.noRepair ? {} : { 'minecraft:repairable': { repair_items: [{ items: [set.repair], repair_amount: Math.round(set.durability / 3) }] } }),
       'minecraft:enchantable': { slot: ENCHANT_SLOTS[item.armor.slot], value: 10 },
     });
   }

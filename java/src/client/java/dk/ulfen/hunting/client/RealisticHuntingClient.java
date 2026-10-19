@@ -15,8 +15,13 @@ public class RealisticHuntingClient implements ClientModInitializer {
 			registerAnimal((EntityType<AnimalType>) (EntityType<?>) type);
 		}
 		EntityRenderers.register(HuntingRegistry.BROADHEAD_ARROW, ctx -> new ArrowRenderer<>(ctx, "broadhead_arrow"));
+		EntityRenderers.register(HuntingRegistry.HARPOON_BOLT, ctx -> new ArrowRenderer<>(ctx, "harpoon_bolt"));
+		EntityRenderers.register(HuntingRegistry.THROWN_HARPOON, ctx -> new ArrowRenderer<>(ctx, "thrown_harpoon"));
+		EntityRenderers.register(HuntingRegistry.MINI_SUBMARINE, SubmarineRenderer::new);
 		ClientHunting.init();
+		ClientSubmarine.init();
 		HuntingHud.init();
+		SubmarineHud.init();
 	}
 
 	private static <T extends Mob & GameCreature> void registerAnimal(EntityType<T> type) {

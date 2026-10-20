@@ -2,8 +2,8 @@
 // full report kept in the Hunting Journal.
 import { system } from '@minecraft/server';
 import { ActionFormData } from '@minecraft/server-ui';
-import { GAME, ZONE_PRIORITY, ZONES } from './data.js';
-import { flashXray, nameOf, xrayCode, xrayOf } from './game.js';
+import { ZONE_PRIORITY, ZONES } from './data.js';
+import { nameOf, showXray, xrayOf } from './game.js';
 
 const MAX_SHOTS = 30;
 const MAX_TROPHIES = 60;
@@ -71,8 +71,7 @@ export function recordShot(player, shot) {
   list.push(record);
   save(player, 'hunting:shots', list, MAX_SHOTS);
 
-  const si = GAME.indexOf(shot.species);
-  if (si >= 0 && zone) flashXray(player, xrayCode(si, ZONE_PRIORITY.indexOf(zone)), now, 100);
+  if (zone) showXray(player, shot.species, zone, now, 100);
   player.onScreenDisplay.setActionBar({
     rawtext: [
       { text: '§l' }, nameOf(shot.species), { text: `§r · ${GRADE_COLOR[shot.grade]}` },
@@ -145,7 +144,6 @@ export function reportBody(r) {
 
 /** Show one report as a form, with the x-ray of the most important zone. */
 export function showReport(player, r, back) {
-  const si = GAME.indexOf(r.species);
   const icon = xrayOf(r.species, r.zone);
   const form = new ActionFormData()
     .title({ rawtext: [{ translate: 'hunting.report.title', with: { rawtext: [nameOf(r.species)] } }] })
@@ -154,10 +152,7 @@ export function showReport(player, r, back) {
     .button({ translate: 'hunting.journal.back' });
   form.show(player).then((res) => {
     if (res.canceled) return;
-    if (res.selection === 0 && si >= 0) {
-      flashXray(player, xrayCode(si, ZONE_PRIORITY.indexOf(r.zone ?? 'muscle')), system.currentTick, 120);
-      return;
-    }
+    if (res.selection === 0 && showXray(player, r.species, r.zone, system.currentTick, 120)) return;
     back?.();
   });
 }

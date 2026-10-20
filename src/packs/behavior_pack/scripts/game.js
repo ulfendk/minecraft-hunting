@@ -1,6 +1,6 @@
 // Shared helpers for game animals: species data, hunting state, size, sex.
 import { world } from '@minecraft/server';
-import { ANIMALS, HUD } from './data.js';
+import { ANIMALS, GAME, HUD, ZONE_PRIORITY } from './data.js';
 import { windAt } from './lib/ballistics.js';
 
 export const STATE = { calm: 0, alert: 1, flee: 2, wounded: 3, carcass: 4 };
@@ -206,6 +206,18 @@ export function flashXray(player, code, now, ticks = 100) {
   h.xrayUntil = now + ticks;
   hud.set(player.id, h);
   refreshHud(player);
+}
+
+/**
+ * Flash the x-ray of one of our species: highlighting `zone` when it has a picture, else the
+ * whole animal. Returns false for species without an x-ray (other add-ons' creatures).
+ */
+export function showXray(player, id, zone, now, ticks = 100) {
+  const si = GAME.indexOf(id);
+  if (si < 0) return false;
+  const zi = BY_ID.get(id)?.xrayZones?.includes(zone) ? ZONE_PRIORITY.indexOf(zone) : ZONE_PRIORITY.length;
+  flashXray(player, xrayCode(si, zi), now, ticks);
+  return true;
 }
 
 /** Called every tick: takes the x-ray away again when its time is up. */

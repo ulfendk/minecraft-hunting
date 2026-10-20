@@ -3,7 +3,7 @@
 import { ItemStack, system, world } from '@minecraft/server';
 import { ActionFormData } from '@minecraft/server-ui';
 import { ANIMALS, GAME } from './data.js';
-import { gameEntities, iconOf, nameOf, TARGETS, wind, xrayOf } from './game.js';
+import { gameEntities, iconOf, nameOf, showXray, TARGETS, wind, xrayOf } from './game.js';
 import { windText } from './gear.js';
 import { GRADE_COLOR, shotsOf, showReport, trophiesOf } from './report.js';
 
@@ -145,7 +145,9 @@ function openEntry(player, a) {
   if (a.game) form.button({ translate: 'hunting.report.xray' }, xrayOf(a.id));
   form.button({ translate: 'hunting.journal.back' }, iconOf(a.id));
   form.show(player).then((res) => {
-    if (!res.canceled) openSpecies(player);
+    if (res.canceled) return;
+    if (a.game && res.selection === 0 && showXray(player, a.id, null, system.currentTick, 120)) return;
+    openSpecies(player);
   });
 }
 

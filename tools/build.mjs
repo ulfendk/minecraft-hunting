@@ -271,7 +271,8 @@ export async function build({ quiet = false } = {}) {
     '',
   ].join('\n'));
 
-  // HUD: a scope overlay per rifle and zoom level, an x-ray per species and zone.
+  // HUD: a scope overlay per rifle and zoom level, an x-ray per species and zone, and a
+  // whole-animal x-ray per species (zone index ZONE_PRIORITY.length) for the journal.
   const scopes = [];
   Object.entries(FIREARMS).forEach(([id, f], r) => {
     (f.zoom ?? []).forEach((fov, z) => {
@@ -286,6 +287,8 @@ export async function build({ quiet = false } = {}) {
   await write(join(RP, 'textures', 'ui', NS, 'black.png'), black());
   const xrays = [];
   game.forEach((a, si) => a.xrayZones.forEach((z) => xrays.push({ species: si, zone: ZONE_PRIORITY.indexOf(z), texture: `textures/ui/${NS}/xray/${a.id}_${z}` })));
+  game.forEach((a, si) => xrays.push({ species: si, zone: ZONE_PRIORITY.length, texture: `textures/ui/${NS}/xray/${a.id}` }));
+  if (game.length > HUD_CHARS.length || ZONE_PRIORITY.length + 1 > HUD_CHARS.length) throw new Error('Too many species or zones for the HUD codes');
   await write(join(RP, 'ui', 'hud_screen.json'), hudScreen(scopes, xrays));
 
   // Items

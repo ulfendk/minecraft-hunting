@@ -1,5 +1,10 @@
 # Changelog
 
+## [0.3.1] - 2026-10-20
+Fixes, for Bedrock:
+- The x-ray button in the journal now shows the x-ray: a species page shows the whole animal, and a shot report whose hit zone has no picture of its own does too (before, the species page just went back to the list).
+- The guide says how to lower the scope.
+
 ## [0.3.0] - 2026-10-20
 Safari animals and dinosaurs as game, for Bedrock and Java (Fabric):
 - With Safari Animals (0.8.0 or later) or Prehistoric Dinosaurs (0.7.0 or later) installed too, all 41 safari animals and 62 prehistoric creatures are game. Each has organs in its own model, a weight, a minimum calibre and a trophy. A broadside heart shot grades perfect; elephants, hippos and the biggest dinosaurs need a .338.

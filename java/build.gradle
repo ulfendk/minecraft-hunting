@@ -46,6 +46,10 @@ dependencies {
 	implementation "net.fabricmc:fabric-loader:${project.loader_version}"
 	implementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_api_version}"
 	implementation "com.geckolib:geckolib-fabric-${project.minecraft_version}:${project.geckolib_version}"
+	// Other mods whose creatures are game, for the game tests: -PcompatJars=../../minecraft-safari-animals/java/build/libs/x.jar,...
+	if (project.hasProperty('compatJars')) {
+		project.compatJars.split(',').each { localRuntime files(it.trim()) }
+	}
 }
 
 // Models, textures, animations, lang, loot, recipes and species data are

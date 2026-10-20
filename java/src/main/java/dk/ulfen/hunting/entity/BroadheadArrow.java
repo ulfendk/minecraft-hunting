@@ -35,7 +35,7 @@ public class BroadheadArrow extends AbstractArrow implements GeoEntity {
 
 	@Override
 	protected void onHitEntity(EntityHitResult hit) {
-		if (hit.getEntity() instanceof GameAnimal animal && this.level() instanceof ServerLevel level && this.getOwner() instanceof ServerPlayer player) {
+		if (dk.ulfen.hunting.hunt.HuntTarget.of(hit.getEntity()) instanceof dk.ulfen.hunting.hunt.HuntTarget animal && this.level() instanceof ServerLevel level && this.getOwner() instanceof ServerPlayer player) {
 			if (animal.isCarcass()) {
 				this.discard();
 				return;

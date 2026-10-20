@@ -2,7 +2,7 @@
 // At ALERT the animal freezes and stares; at FLEE it bolts, and the rest of the herd goes
 // with it. dk.ulfen.hunting.hunt.Senses is the Java twin (same numbers).
 import { system, world } from '@minecraft/server';
-import { gameNearPlayers, getState, setState, speciesOf, STATE, wind } from './game.js';
+import { gameEntities, gameNearPlayers, getState, setState, speciesOf, STATE, wind } from './game.js';
 import { dist, dot, norm, sub } from './util.js';
 
 export const ALERT = 30;
@@ -161,7 +161,7 @@ function sense(animal, a, player, w, now) {
 function warn(animal, a) {
   try {
     if (a.sounds?.warn) animal.dimension.playSound(a.sounds.warn, animal.location, { pitch: (a.sounds.pitch?.[0] ?? 1) * 0.8, volume: 1.2 });
-    animal.playAnimation(`animation.hunting.${a.id}.stamp`, { blendOutTime: 0.2 });
+    if (!a.foreign) animal.playAnimation(`animation.hunting.${a.id}.stamp`, { blendOutTime: 0.2 });
   } catch {}
 }
 
@@ -191,7 +191,7 @@ export function gunshot(player, loudness = 1) {
     player.dimension.spawnEntity('hunting:scare_marker', player.location);
   } catch {}
   try {
-    for (const e of player.dimension.getEntities({ families: ['hunting_game'], location: player.location, maxDistance: 140 * loudness })) {
+    for (const e of gameEntities(player.dimension, { location: player.location, maxDistance: 140 * loudness })) {
       const a = speciesOf(e);
       if (!a || getState(e) === STATE.carcass) continue;
       const d = dist(e.location, player.location);

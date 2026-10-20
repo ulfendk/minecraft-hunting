@@ -3,13 +3,17 @@
 import { ItemStack, system, world } from '@minecraft/server';
 import { ActionFormData } from '@minecraft/server-ui';
 import { ANIMALS, GAME } from './data.js';
-import { nameOf, wind } from './game.js';
+import { gameEntities, iconOf, nameOf, TARGETS, wind, xrayOf } from './game.js';
 import { windText } from './gear.js';
 import { GRADE_COLOR, shotsOf, showReport, trophiesOf } from './report.js';
 
 const SEEN = 'hunting:seen';
 const GIVEN = 'hunting:journal_given';
-const SPECIES = ANIMALS.filter((a) => a.game || a.companion);
+const OWN = ANIMALS.filter((a) => a.game || a.companion);
+/** Our species, then other add-ons' game (by the full type id). */
+const allSpecies = () => [...OWN, ...[...TARGETS.values()].filter((a) => a.foreign)];
+/** Journal id of an entity: our species without namespace, others' with. */
+const journalId = (typeId) => (typeId.startsWith('hunting:') ? typeId.slice(8) : typeId);
 
 function seenSet(player) {
   try {
@@ -26,13 +30,16 @@ function spot() {
     let changed = false;
     let nearby;
     try {
-      nearby = player.dimension.getEntities({ families: ['hunting'], location: player.location, maxDistance: 16 });
+      nearby = [
+        ...player.dimension.getEntities({ families: ['hunting'], location: player.location, maxDistance: 16 }),
+        ...gameEntities(player.dimension, { location: player.location, maxDistance: 16 }).filter((e) => !e.typeId.startsWith('hunting:')),
+      ];
     } catch {
       continue;
     }
     for (const e of nearby) {
-      const id = e.typeId.split(':')[1];
-      if (seen.has(id) || !SPECIES.some((a) => a.id === id)) continue;
+      const id = journalId(e.typeId);
+      if (seen.has(id) || !allSpecies().some((a) => a.id === id)) continue;
       seen.add(id);
       changed = true;
       player.onScreenDisplay.setActionBar({ rawtext: [{ translate: 'hunting.journal.spotted', with: { rawtext: [nameOf(id)] } }] });
@@ -57,14 +64,14 @@ function openIndex(player) {
   const actions = [];
   if (last) {
     form.button({ rawtext: [{ translate: 'hunting.journal.last_shot' }, { text: '\n' }, nameOf(last.species), { text: ` · ${GRADE_COLOR[last.grade]}` }, { translate: `hunting.grade.${last.grade}` }] },
-      `textures/ui/hunting/xray/${last.species}${last.zone ? `_${last.zone}` : ''}`);
+      xrayOf(last.species, last.zone));
     actions.push(() => showReport(player, last, () => openIndex(player)));
   }
   form.button({ translate: 'hunting.journal.shots', with: [String(shots.length)] }, 'textures/items/spyglass');
   actions.push(() => openShots(player));
   form.button({ translate: 'hunting.journal.trophies', with: [String(trophies.length)] }, 'textures/items/hunting/trophy_antlers');
   actions.push(() => openTrophies(player));
-  form.button({ translate: 'hunting.journal.species', with: [String(seen.size), String(SPECIES.length)] }, 'textures/items/hunting/hunting_journal');
+  form.button({ translate: 'hunting.journal.species', with: [String(seen.size), String(allSpecies().length)] }, 'textures/items/hunting/hunting_journal');
   actions.push(() => openSpecies(player));
   form.button({ translate: 'hunting.journal.wind' }, 'textures/items/hunting/wind_checker');
   actions.push(() => player.onScreenDisplay.setActionBar({ rawtext: [windText(wind())] }));
@@ -80,7 +87,7 @@ function openShots(player) {
   for (const s of shots) {
     form.button({
       rawtext: [{ translate: 'hunting.journal.shot_line', with: { rawtext: [nameOf(s.species), { text: String(s.distance) }, { rawtext: [{ text: GRADE_COLOR[s.grade] }, { translate: `hunting.grade.${s.grade}` }] }] } }],
-    }, `textures/ui/hunting/${s.species}`);
+    }, iconOf(s.species));
   }
   form.button({ translate: 'hunting.journal.back' });
   form.show(player).then((res) => {
@@ -106,10 +113,11 @@ function openTrophies(player) {
 
 function openSpecies(player) {
   const seen = seenSet(player);
-  const order = [...SPECIES].sort((a, b) => GAME.indexOf(a.id) - GAME.indexOf(b.id));
-  const form = new ActionFormData().title({ translate: 'hunting.journal.species', with: [String(seen.size), String(SPECIES.length)] });
+  const rank = (a) => (a.foreign ? 1000 : GAME.indexOf(a.id));
+  const order = allSpecies().sort((a, b) => rank(a) - rank(b));
+  const form = new ActionFormData().title({ translate: 'hunting.journal.species', with: [String(seen.size), String(order.length)] });
   for (const a of order) {
-    if (seen.has(a.id)) form.button(nameOf(a.id), `textures/ui/hunting/${a.id}`);
+    if (seen.has(a.id)) form.button(nameOf(a.id), iconOf(a.id));
     else form.button('§8???');
   }
   form.button({ translate: 'hunting.journal.back' });
@@ -123,7 +131,7 @@ function openSpecies(player) {
 }
 
 function openEntry(player, a) {
-  const body = [
+  const body = a.foreign ? [...(a.entry ? [{ translate: a.entry }, { text: '\n' }] : [])] : [
     { translate: `hunting.guide.entry.${a.id}` },
     { text: '\n' },
     ...line('hunting.journal.lives_in', a.habitats.map((h) => `hunting.habitat.${h}`)),
@@ -134,8 +142,8 @@ function openEntry(player, a) {
     body.push({ text: '\n§2' }, { translate: 'hunting.journal.senses', with: [sense(a.senses.sight), sense(a.senses.hearing), sense(a.senses.smell)] });
   }
   const form = new ActionFormData().title(nameOf(a.id)).body({ rawtext: body });
-  if (a.game) form.button({ translate: 'hunting.report.xray' }, `textures/ui/hunting/xray/${a.id}`);
-  form.button({ translate: 'hunting.journal.back' }, `textures/ui/hunting/${a.id}`);
+  if (a.game) form.button({ translate: 'hunting.report.xray' }, xrayOf(a.id));
+  form.button({ translate: 'hunting.journal.back' }, iconOf(a.id));
   form.show(player).then((res) => {
     if (!res.canceled) openSpecies(player);
   });

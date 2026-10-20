@@ -3,7 +3,7 @@
 // carcass until it is field dressed with a knife (meat, hide and trophy).
 import { ItemStack, MolangVariableMap, system, world } from '@minecraft/server';
 import { KNIVES, ZONES } from './data.js';
-import { getState, isBaby, isMale, nameOf, setState, sizeOf, speciesOf, STATE, weightOf } from './game.js';
+import { getState, isBaby, isMale, nameOf, setState, sizeOf, speciesOf, STATE, trigger, weightOf } from './game.js';
 import { bloodOf, recordTrophy, shotsOf } from './report.js';
 import { spook } from './senses.js';
 import { heldItem, wearSelected } from './util.js';
@@ -47,7 +47,7 @@ function showTrails(now) {
 export function becomeCarcass(entity, a, shooter, shotId) {
   try {
     if (getState(entity) === STATE.carcass) return;
-    entity.triggerEvent('hunting:become_carcass');
+    trigger(entity, a, 'carcass');
     setState(entity, STATE.carcass);
     entity.removeEffect('slowness');
     entity.clearVelocity();
@@ -138,10 +138,12 @@ function tickWounded(now) {
 export function placeCarcass(dimension, location, { type, props, variant }) {
   try {
     const e = dimension.spawnEntity(type, location);
-    if (e.getComponent('minecraft:is_baby')) e.triggerEvent('hunting:grow_up');
-    if (variant) e.triggerEvent(`hunting:make_variant_${variant}`);
+    const ns = type.split(':')[0];
+    // Other add-ons' carcass events keep a young animal young; ours turns it into an adult.
+    if (ns === 'hunting' && e.getComponent('minecraft:is_baby')) e.triggerEvent('hunting:grow_up');
+    if (variant) try { e.triggerEvent(`${ns}:make_variant_${variant}`); } catch {}
     for (const [k, v] of Object.entries(props ?? {})) e.setDynamicProperty(k, v);
-    e.triggerEvent('hunting:become_carcass');
+    trigger(e, speciesOf(e), 'carcass');
     setState(e, STATE.carcass);
   } catch {}
 }

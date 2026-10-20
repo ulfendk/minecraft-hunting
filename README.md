@@ -41,6 +41,7 @@ A Minecraft **Bedrock Edition** add-on and **Java Edition** (Fabric) mod for rea
   - camouflage netting to build a hide
   - tree stands
 - **Hunting Journal:** your shot reports, trophy log and a guide to the game you've seen.
+- **Safari animals and dinosaurs as game:** install [Safari Animals](https://github.com/ulfendk/minecraft-safari-animals) or [Prehistoric Dinosaurs](https://github.com/ulfendk/minecraft-dinosaurs) as well, and all their creatures become game. Each has organs in its own model, a weight, a minimum calibre and a trophy, so a broadside heart shot is perfect and a T. rex needs a .338. They show up in the shot report (with their portrait instead of the x-ray) and the journal, leave blood trails, become carcasses to field dress, and the dog tracks them.
 
 ## Install
 1. Download `RealisticHunting.mcaddon` from the [latest release](https://github.com/ulfendk/minecraft-hunting/releases/latest).
@@ -98,6 +99,20 @@ The ballistics and hit-zone code is shared on the JavaScript side (`scripts/lib/
 2. Run `npm run preview <id>` and look at `build/preview/<id>.png`.
 3. Run `node tools/check-hitzones.mjs <id>`.
 4. Add a line to `src/guide.mjs` and the Danish names to `src/i18n.mjs` and `src/lang.mjs`.
+
+### Hunting targets for other add-ons
+Any add-on or mod can make its creatures game. It sends one **profile** per creature: the game data plus a hit model built from its own geometry. There is no build-time link, and either add-on works without the other.
+
+- **The kit:** `tools/target-kit/` (see its README) is copied into the other add-on: `buildHitModel` and organ helpers, the zones, `evaluate()`, the protocol, and `checkProfile()` for its build.
+- **The profile:** `{ v: 1, id: 'safari:lion', name: <lang key>, game: { class, minEnergy, minShotEnergy?, weight: [kg, kg], score, trophy, maleTrophy, call? }, senses: { sight, hearing, smell, alertTime, herd }, scale, health, bird, fish, hitModel, hitModelFemale, sex: 'random' | 'variant0', sounds: { warn, death, pitch }, loot: [{ item, min, max }], icon?, entry?, bedrock: { state, events: { carcass, lure, unlure } } }`. On Java, `modelScale` scales the hit model when the renderer scales the model rather than the entity.
+- **Bedrock:** the add-on sends profiles as script events (`hunting:register`, chunked; see `scripts/lib/protocol.js`) on world load and when it hears `hunting:hello`. Its entities need:
+  - the family `hunting_target`
+  - an int property for the state (0 calm … 4 carcass)
+  - a carcass event that strips AI and navigation, plus lure/unlure events
+  - a flee filter on the state, and damage immunity as a carcass
+
+  Our dog tracks them by the tag `hunting_quarry`.
+- **Java:** the mod ships `hunting/targets/<modid>.json`, an array of profiles. Its creatures' state lives in our attachment. A carcass gets the entity tag `hunting.carcass`, which the mod can use to show it lying dead.
 
 ### Releases
 Bump `version` in `package.json`, add a section to `CHANGELOG.md`, then push a tag such as `v0.2.0`. The release workflow builds and tests the packs, publishes a GitHub Release with the files, and updates the website.

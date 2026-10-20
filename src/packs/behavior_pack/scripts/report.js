@@ -3,7 +3,7 @@
 import { system } from '@minecraft/server';
 import { ActionFormData } from '@minecraft/server-ui';
 import { GAME, ZONE_PRIORITY, ZONES } from './data.js';
-import { BY_ID, flashXray, nameOf, xrayCode } from './game.js';
+import { flashXray, nameOf, xrayCode, xrayOf } from './game.js';
 
 const MAX_SHOTS = 30;
 const MAX_TROPHIES = 60;
@@ -145,8 +145,8 @@ export function reportBody(r) {
 
 /** Show one report as a form, with the x-ray of the most important zone. */
 export function showReport(player, r, back) {
-  const a = BY_ID.get(r.species);
-  const icon = `textures/ui/hunting/xray/${r.species}${r.zone ? `_${r.zone}` : ''}`;
+  const si = GAME.indexOf(r.species);
+  const icon = xrayOf(r.species, r.zone);
   const form = new ActionFormData()
     .title({ rawtext: [{ translate: 'hunting.report.title', with: { rawtext: [nameOf(r.species)] } }] })
     .body(reportBody(r))
@@ -154,8 +154,8 @@ export function showReport(player, r, back) {
     .button({ translate: 'hunting.journal.back' });
   form.show(player).then((res) => {
     if (res.canceled) return;
-    if (res.selection === 0 && a) {
-      flashXray(player, xrayCode(GAME.indexOf(r.species), ZONE_PRIORITY.indexOf(r.zone ?? 'muscle')), system.currentTick, 120);
+    if (res.selection === 0 && si >= 0) {
+      flashXray(player, xrayCode(si, ZONE_PRIORITY.indexOf(r.zone ?? 'muscle')), system.currentTick, 120);
       return;
     }
     back?.();

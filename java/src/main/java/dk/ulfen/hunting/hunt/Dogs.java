@@ -4,6 +4,7 @@ import java.util.EnumSet;
 import java.util.List;
 
 import dk.ulfen.hunting.entity.GameAnimal;
+import net.minecraft.world.entity.Mob;
 import dk.ulfen.hunting.entity.GameCreature;
 import dk.ulfen.hunting.entity.HuntingDog;
 import net.minecraft.network.chat.Component;
@@ -29,14 +30,15 @@ public final class Dogs {
 	/** A shot bird carried in the dog's mouth. */
 	public record Carried(EntityType<?> type, int variant, float size, String grade, long shotId, java.util.@Nullable UUID shooter) {}
 
-	private static @Nullable GameAnimal quarry(HuntingDog dog, ServerLevel level, @Nullable LivingEntity owner) {
-		GameAnimal best = null;
+	private static @Nullable Mob quarry(HuntingDog dog, ServerLevel level, @Nullable LivingEntity owner) {
+		Mob best = null;
 		double bestD = Double.MAX_VALUE;
-		for (GameAnimal g : level.getEntitiesOfClass(GameAnimal.class, dog.getBoundingBox().inflate(160), a -> a.huntState() >= GameCreature.WOUNDED)) {
-			if (g.isCarcass() && g.shooter != null && owner != null && !g.shooter.equals(owner.getUUID())) continue;
-			double d = g.distanceToSqr(dog);
+		for (HuntTarget g : HuntTarget.in(level, dog.getBoundingBox().inflate(160), a -> a.huntState() >= GameCreature.WOUNDED)) {
+			var shooter = g.hunt().shooter;
+			if (g.isCarcass() && shooter != null && owner != null && !shooter.equals(owner.getUUID())) continue;
+			double d = g.mob().distanceToSqr(dog);
 			if (d < bestD) {
-				best = g;
+				best = g.mob();
 				bestD = d;
 			}
 		}
@@ -77,15 +79,16 @@ public final class Dogs {
 		}
 		if (dog.trackingUntil <= level.getGameTime()) return;
 		if (dog.tickCount % 40 == 0) dog.playSound(SoundEvents.FOX_SNIFF, 1.0F, 0.8F);
-		List<GameAnimal> found = level.getEntitiesOfClass(GameAnimal.class, dog.getBoundingBox().inflate(3), a -> a.huntState() >= GameCreature.WOUNDED);
+		List<HuntTarget> found = HuntTarget.in(level, dog.getBoundingBox().inflate(3), a -> a.huntState() >= GameCreature.WOUNDED);
 		if (found.isEmpty()) return;
-		GameAnimal g = found.getFirst();
+		HuntTarget g = found.getFirst();
 		dog.trackingUntil = 0;
 		dog.playSound(Sounds.get("entity.wolf.ambient"), 3.0F, 1.0F);
-		if (owner instanceof ServerPlayer p) p.sendOverlayMessage(Component.translatable("hunting.dog.found", Component.translatable("entity.hunting." + g.species().id())));
-		if (g.species().bird() && g.isCarcass()) {
-			dog.carrying = new Carried(g.getType(), g.getVariant(), g.size(), g.grade, g.shotId, g.shooter);
-			g.discard();
+		if (owner instanceof ServerPlayer p) p.sendOverlayMessage(Component.translatable("hunting.dog.found", g.name()));
+		// Our birds are fetched (other mods' creatures are left where they lie).
+		if (g.species().bird() && g.isCarcass() && g instanceof GameAnimal bird) {
+			dog.carrying = new Carried(bird.getType(), bird.getVariant(), bird.size(), bird.hunt().grade, bird.hunt().shotId, bird.hunt().shooter);
+			bird.discard();
 		}
 	}
 
@@ -95,7 +98,7 @@ public final class Dogs {
 		g.snapTo(at.getX(), at.getY(), at.getZ(), at.getYRot(), 0);
 		g.setVariant(c.variant());
 		g.setSize(c.size());
-		g.grade = c.grade();
+		g.hunt().grade = c.grade();
 		level.addFreshEntity(g);
 		Wounds.becomeCarcass(g, level, c.shooter(), c.shotId());
 	}
@@ -103,7 +106,7 @@ public final class Dogs {
 	/** Follow the trail: run to the nearest wounded or downed game. */
 	public static class TrackGoal extends Goal {
 		private final HuntingDog dog;
-		private @Nullable GameAnimal target;
+		private @Nullable Mob target;
 
 		public TrackGoal(HuntingDog dog) {
 			this.dog = dog;

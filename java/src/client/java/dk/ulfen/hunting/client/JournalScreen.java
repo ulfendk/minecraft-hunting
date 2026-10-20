@@ -41,7 +41,7 @@ public class JournalScreen extends Screen {
 		List<JsonElement> trophies = list("trophies");
 		List<JsonElement> seen = list("seen");
 		int total = 0;
-		for (Species ignored : SpeciesRegistry.all()) total++;
+		for (Species ignored : SpeciesRegistry.everything()) total++;
 		this.addRenderableWidget(Button.builder(Component.translatable("hunting.journal.shots", String.valueOf(shots.size())), b -> show(Tab.SHOTS)).bounds(cx - 190, 26, 124, 20).build());
 		this.addRenderableWidget(Button.builder(Component.translatable("hunting.journal.trophies", String.valueOf(trophies.size())), b -> show(Tab.TROPHIES)).bounds(cx - 62, 26, 124, 20).build());
 		this.addRenderableWidget(Button.builder(Component.translatable("hunting.journal.species", String.valueOf(seen.size()), String.valueOf(total)), b -> show(Tab.GAME)).bounds(cx + 66, 26, 124, 20).build());
@@ -53,7 +53,7 @@ public class JournalScreen extends Screen {
 			for (int i = from; i < Math.min(recent.size(), from + PER_PAGE); i++) {
 				JsonObject s = recent.get(i).getAsJsonObject();
 				String grade = s.get("grade").getAsString();
-				Component label = Component.translatable("hunting.journal.shot_line", Component.translatable("entity.hunting." + s.get("species").getAsString()),
+				Component label = Component.translatable("hunting.journal.shot_line", Component.translatable(SpeciesRegistry.nameKey(s.get("species").getAsString())),
 					String.valueOf(s.get("distance").getAsLong()), Component.translatable("hunting.grade." + grade).withStyle(ShotReportScreen.gradeColor(grade)));
 				this.addRenderableWidget(Button.builder(label, b -> this.minecraft.gui.setScreen(new ShotReportScreen(s, this))).bounds(cx - 150, 54 + (i - from) * 22, 300, 20).build());
 			}
@@ -95,7 +95,7 @@ public class JournalScreen extends Screen {
 			for (JsonElement e : trophies.subList(0, Math.min(14, trophies.size()))) {
 				JsonObject t = e.getAsJsonObject();
 				String grade = t.get("grade").getAsString();
-				g.centeredText(this.font, Component.translatable("hunting.journal.trophy_line", Component.translatable("entity.hunting." + t.get("species").getAsString()),
+				g.centeredText(this.font, Component.translatable("hunting.journal.trophy_line", Component.translatable(SpeciesRegistry.nameKey(t.get("species").getAsString())),
 					String.valueOf(t.get("score").getAsDouble()), String.valueOf(t.get("kg").getAsDouble()),
 					Component.translatable("hunting.grade." + grade).withStyle(ShotReportScreen.gradeColor(grade))), cx, y, 0xFFE0E0E0);
 				y += 12;
@@ -104,11 +104,11 @@ public class JournalScreen extends Screen {
 		if (this.tab == Tab.GAME) {
 			List<String> seen = new ArrayList<>();
 			list("seen").forEach(e -> seen.add(e.getAsString()));
-			for (Species s : SpeciesRegistry.all()) {
+			for (Species s : SpeciesRegistry.everything()) {
 				if (!seen.contains(s.id())) {
 					g.centeredText(this.font, Component.literal("???").withStyle(ChatFormatting.DARK_GRAY), cx, y, 0xFF666666);
 				} else {
-					Component name = Component.translatable("entity.hunting." + s.id()).withStyle(ChatFormatting.GOLD);
+					Component name = Component.translatable(s.nameKey()).withStyle(ChatFormatting.GOLD);
 					Component line = s.game() == null ? name : Component.empty().append(name).append("  ")
 						.append(Component.translatable("hunting.journal.senses", dots(s.senses().sight()), dots(s.senses().hearing()), dots(s.senses().smell())).withStyle(ChatFormatting.GRAY))
 						.append("  ").append(Component.translatable("hunting.journal.calibre", String.valueOf((int) s.game().minEnergy())).withStyle(ChatFormatting.DARK_GREEN));

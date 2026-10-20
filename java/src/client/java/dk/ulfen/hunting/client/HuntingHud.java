@@ -93,8 +93,10 @@ public final class HuntingHud {
 	public static void draw(GuiGraphicsExtractor g, JsonObject r, int x, int y, int w, int h) {
 		String species = r.get("species").getAsString();
 		String zone = r.has("zone") ? r.get("zone").getAsString() : null;
+		// Other mods' game has no x-ray pictures: the report says what was hit.
+		Species s = SpeciesRegistry.find(species);
+		if (s == null || s.xrayView() == null) return;
 		Identifier tex = HuntingRegistry.id("textures/gui/xray/" + species + (zone == null ? "" : "_" + zone) + ".png");
-		Species s = SpeciesRegistry.get(species);
 		Species.XrayView v = s.xrayView();
 		g.blit(RenderPipelines.GUI_TEXTURED, tex, x, y, 0, 0, w, h, v.w(), v.h(), v.w(), v.h());
 		double k = (double) w / v.w();

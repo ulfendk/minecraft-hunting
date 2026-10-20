@@ -1,5 +1,6 @@
 package dk.ulfen.hunting.client;
 
+import dk.ulfen.hunting.species.SpeciesRegistry;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -21,7 +22,7 @@ public class ShotReportScreen extends Screen {
 	private final @Nullable Screen back;
 
 	public ShotReportScreen(JsonObject report, @Nullable Screen back) {
-		super(Component.translatable("hunting.report.title", Component.translatable("entity.hunting." + report.get("species").getAsString())));
+		super(Component.translatable("hunting.report.title", Component.translatable(SpeciesRegistry.nameKey(report.get("species").getAsString()))));
 		this.r = report;
 		this.back = back;
 	}

@@ -49,7 +49,13 @@ export default {
       'minecraft:behavior.nearest_attackable_target': {
         priority: 1, must_see: false, reselect_targets: true, within_radius: 160,
         entity_types: [{
-          filters: { all_of: [fam('hunting_game'), { test: 'int_property', subject: 'other', domain: 'hunting:state', operator: '>=', value: 3 }] },
+          // Other add-ons' game carries the hunting_quarry tag instead (scripts/game.js, setState).
+          filters: {
+            any_of: [
+              { all_of: [fam('hunting_game'), { test: 'int_property', subject: 'other', domain: 'hunting:state', operator: '>=', value: 3 }] },
+              { test: 'has_tag', subject: 'other', value: 'hunting_quarry' },
+            ],
+          },
           max_dist: 160,
         }],
       },

@@ -6,7 +6,6 @@ import java.util.List;
 import java.util.Map;
 
 import dk.ulfen.hunting.HuntingRegistry;
-import dk.ulfen.hunting.entity.GameAnimal;
 import dk.ulfen.hunting.species.Species;
 import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.network.chat.Component;
@@ -52,30 +51,30 @@ public final class Shooting {
 
 		Vec3 end = eye.add(dir.scale(Math.min(blockS, c.range())));
 		AABB box = new AABB(eye, end).inflate(6);
-		List<GameAnimal> near = new ArrayList<>();
-		Map<GameAnimal, Double> along = new LinkedHashMap<>();
-		for (GameAnimal e : level.getEntitiesOfClass(GameAnimal.class, box, GameAnimal::isLiveGame)) {
-			Vec3 v = e.position().add(0, 0.6, 0).subtract(eye);
+		List<HuntTarget> near = new ArrayList<>();
+		Map<HuntTarget, Double> along = new LinkedHashMap<>();
+		for (HuntTarget e : HuntTarget.in(level, box, HuntTarget::isLive)) {
+			Vec3 v = e.mob().position().add(0, 0.6, 0).subtract(eye);
 			double s = v.dot(dir);
 			if (s < 0 || s > blockS + 3) continue;
 			double off = v.subtract(dir.scale(s)).length();
-			if (off < 4 + e.species().scale() * 2) {
+			if (off < 4 + e.modelScale() * 2) {
 				near.add(e);
 				along.put(e, s);
 			}
 		}
 		near.sort((a, b) -> Double.compare(along.get(a), along.get(b)));
-		for (GameAnimal e : near) {
+		for (HuntTarget e : near) {
 			Species sp = e.species();
 			double s = along.get(e);
 			double back = Math.max(0, s - 5);
 			Vec3 p0 = Ballistics.pointAt(c, eye, dir, w, back);
 			Vec3 p1 = Ballistics.pointAt(c, eye, dir, w, s + 5);
-			double k = e.getScale();
-			HitZones.ModelSpace m = new HitZones.ModelSpace(e.position(), e.yBodyRot, k);
+			double k = e.modelScale();
+			HitZones.ModelSpace m = new HitZones.ModelSpace(e.mob().position(), e.mob().yBodyRot, k);
 			double[] o = m.point(p0);
 			double[] d = m.direction(p1.subtract(p0));
-			HitZones.Model model = hitModelFor(e);
+			HitZones.Model model = e.hitModel();
 			double[] span = HitZones.intersect(model, o, d);
 			if (span == null) continue;
 			double distance = back + span[0] * k / 16;
@@ -84,13 +83,13 @@ public final class Shooting {
 			double penetration = c.penetration() * Math.sqrt(energy / c.energy());
 			double minEnergy = c.isShot() ? sp.game().minShotEnergy() : c.projectile() ? 0 : sp.game().minEnergy();
 			HitZones.Report r = HitZones.evaluate(model, o, d, energy, penetration, 6.25 * k, minEnergy, !sp.game().gameClass().equals("small"));
-			if (r.hit()) return new Hit("game", e, distance, energy, r);
+			if (r.hit()) return new Hit("game", e.mob(), distance, energy, r);
 		}
 
 		Vec3 stop = eye.add(dir.scale(blockS));
 		Entity best = null;
 		double bestD = Double.MAX_VALUE;
-		for (Entity e : level.getEntities(shooter, new AABB(eye, stop).inflate(1), x -> x instanceof LivingEntity && !(x instanceof GameAnimal) && x.isAlive() && x.isPickable())) {
+		for (Entity e : level.getEntities(shooter, new AABB(eye, stop).inflate(1), x -> x instanceof LivingEntity && HuntTarget.of(x) == null && x.isAlive() && x.isPickable())) {
 			var clip = e.getBoundingBox().inflate(0.1).clip(eye, stop);
 			if (clip.isPresent() && clip.get().distanceTo(eye) < bestD) {
 				best = e;
@@ -99,11 +98,6 @@ public final class Shooting {
 		}
 		if (best != null) return new Hit("entity", best, bestD, Ballistics.energyAt(c, bestD), null);
 		return new Hit(blockS < c.range() ? "block" : "none", null, blockS, 0, null);
-	}
-
-	/** Hit model for this animal: the male model has antlers (and other male-only parts), the female's doesn't. */
-	public static HitZones.Model hitModelFor(GameAnimal e) {
-		return e.species().model(e.isMale() && !e.isBaby());
 	}
 
 	private static Vec3 spread(Vec3 dir, double degrees, net.minecraft.util.RandomSource random) {
@@ -197,7 +191,7 @@ public final class Shooting {
 		Senses.gunshot(player, c.isShot() ? 0.8 : 1);
 
 		int pellets = Math.max(1, c.pellets());
-		Map<GameAnimal, List<Hit>> perAnimal = new LinkedHashMap<>();
+		Map<HuntTarget, List<Hit>> perAnimal = new LinkedHashMap<>();
 		for (int i = 0; i < pellets; i++) {
 			Vec3 d = pellets > 1 ? spread(dir, c.spread(), level.getRandom()) : dir;
 			Hit hit = trace(level, eye, d, c, w, player);
@@ -205,7 +199,8 @@ public final class Shooting {
 				Vec3 p = Ballistics.pointAt(c, eye, d, w, hit.distance());
 				level.sendParticles(ParticleTypes.SMOKE, p.x, p.y, p.z, 3, 0.05, 0.05, 0.05, 0.01);
 			} else if (hit.kind().equals("game")) {
-				perAnimal.computeIfAbsent((GameAnimal) hit.entity(), k -> new ArrayList<>()).add(hit);
+				HuntTarget t = HuntTarget.of(hit.entity());
+				if (t != null) perAnimal.computeIfAbsent(t, k -> new ArrayList<>()).add(hit);
 			} else if (hit.kind().equals("entity") && hit.entity() != null) {
 				float dmg = c.isShot() ? 2 : (float) Math.min(40, hit.energy() / 150);
 				hit.entity().hurtServer(level, player.damageSources().playerAttack(player), dmg);

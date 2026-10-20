@@ -40,7 +40,7 @@ public class ThrownHarpoon extends HarpoonProjectile {
 
 	@Override
 	protected void onHitEntity(EntityHitResult hit) {
-		if (hit.getEntity() instanceof GameAnimal) {
+		if (dk.ulfen.hunting.hunt.HuntTarget.of(hit.getEntity()) != null) {
 			super.onHitEntity(hit);
 			return;
 		}

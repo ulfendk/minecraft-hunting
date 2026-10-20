@@ -137,7 +137,7 @@ public class GameFish extends GameAnimal {
 
 		private boolean fleeing() {
 			int s = this.fish.huntState();
-			return (s == FLEE || s == WOUNDED) && this.fish.fleeFrom != null && this.fish.isInWater();
+			return (s == FLEE || s == WOUNDED) && this.fish.hunt().fleeFrom != null && this.fish.isInWater();
 		}
 
 		@Override
@@ -151,14 +151,14 @@ public class GameFish extends GameAnimal {
 		}
 
 		private boolean swimAway() {
-			Vec3 away = this.fish.position().subtract(this.fish.fleeFrom);
+			Vec3 away = this.fish.position().subtract(this.fish.hunt().fleeFrom);
 			away = away.lengthSqr() < 1e-4 ? new Vec3(1, 0, 0) : away.normalize();
 			RandomSource r = this.fish.getRandom();
 			for (int i = 0; i < 8; i++) {
 				Vec3 to = this.fish.position().add(away.scale(10 + r.nextInt(8))).add(r.nextInt(9) - 4, r.nextInt(5) - 2, r.nextInt(9) - 4);
 				BlockPos p = BlockPos.containing(to);
 				if (!this.fish.level().getFluidState(p).is(FluidTags.WATER)) continue;
-				double k = this.fish.huntState() == WOUNDED ? Math.max(0.5, 1 - this.fish.slows * 0.6) : 1;
+				double k = this.fish.huntState() == WOUNDED ? Math.max(0.5, 1 - this.fish.hunt().slows * 0.6) : 1;
 				if (this.fish.getNavigation().moveTo(to.x, to.y, to.z, this.speed * k)) return true;
 			}
 			return false;

@@ -1,7 +1,7 @@
 // Hunting gear: binoculars (zoom and range finder), wind checker, game calls and scent eliminator.
 import { MolangVariableMap, system, world } from '@minecraft/server';
 import { compass, windStrength } from './lib/ballistics.js';
-import { getState, isBaby, isMale, nameOf, speciesOf, STATE, wind } from './game.js';
+import { gameEntities, gameInView, getState, isBaby, isMale, nameOf, speciesOf, STATE, trigger, wind } from './game.js';
 import { applyScentEliminator, makeNoise } from './senses.js';
 import { consumeOne, dist, findItem, heldItem, isCreative, wearSelected } from './util.js';
 
@@ -45,12 +45,12 @@ function blowCall(player, id) {
     marker = player.dimension.spawnEntity('hunting:lure_marker', player.location);
   } catch {}
   if (!marker) return;
-  for (const e of player.dimension.getEntities({ families: ['hunting_game'], location: player.location, maxDistance: 72 })) {
+  for (const e of gameEntities(player.dimension, { location: player.location, maxDistance: 72 })) {
     const a = speciesOf(e);
     if (!a || a.game.call !== kind || getState(e) !== STATE.calm) continue;
-    try { e.triggerEvent('hunting:lure'); } catch {}
+    trigger(e, a, 'lure');
     system.runTimeout(() => {
-      try { if (e.isValid) e.triggerEvent('hunting:unlure'); } catch {}
+      if (e.isValid) trigger(e, a, 'unlure');
     }, 20 * 25);
   }
   player.onScreenDisplay.setActionBar({ translate: 'hunting.call.used', with: { rawtext: [{ translate: `item.hunting:${id}.name` }] } });
@@ -71,7 +71,7 @@ function glass(player) {
   const eye = player.getHeadLocation();
   let text;
   try {
-    const hit = player.getEntitiesFromViewDirection({ maxDistance: 256, families: ['hunting_game'] })[0];
+    const hit = gameInView(player, 256);
     const a = hit && speciesOf(hit.entity);
     if (a) {
       const e = hit.entity;

@@ -58,10 +58,10 @@ public abstract class HarpoonProjectile extends AbstractArrow implements GeoEnti
 
 	@Override
 	protected void onHitEntity(EntityHitResult hit) {
-		if (hit.getEntity() instanceof GameAnimal animal && this.level() instanceof ServerLevel level && this.getOwner() instanceof ServerPlayer player) {
+		if (dk.ulfen.hunting.hunt.HuntTarget.of(hit.getEntity()) instanceof dk.ulfen.hunting.hunt.HuntTarget animal && this.level() instanceof ServerLevel level && this.getOwner() instanceof ServerPlayer player) {
 			// Spearing a carcass (a dead fish floating off) just puts it on the line.
 			if (!animal.isCarcass()) ProjectileHits.hit(animal, level, player, calibre(), hit.getLocation(), this.getDeltaMovement(), power, 6);
-			struck(level, player, animal);
+			struck(level, player, animal.mob());
 			return;
 		}
 		super.onHitEntity(hit);

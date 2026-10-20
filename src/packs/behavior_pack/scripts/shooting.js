@@ -9,7 +9,7 @@ import { system, world } from '@minecraft/server';
 import { CALIBRES, FIREARMS, ZONE_PRIORITY, ZONES } from './data.js';
 import { energyAt, pointAt } from './lib/ballistics.js';
 import { evaluate, intersect, toModel } from './lib/hitzones.js';
-import { getState, hitModelOf, scaleOf, scopeCode, setScopeHud, speciesOf, STATE, tickHud, wind } from './game.js';
+import { gameEntities, getState, hitModelOf, scaleOf, scopeCode, setScopeHud, speciesOf, STATE, tickHud, wind } from './game.js';
 import { recordShot } from './report.js';
 import { gunshot, makeNoise } from './senses.js';
 import { applyHit } from './wounds.js';
@@ -157,7 +157,7 @@ export function trace(dimension, eye, dir, calibre, w, shooter) {
   // Game animals near the line, nearest first, tested against their model shapes.
   let candidates = [];
   try {
-    candidates = dimension.getEntities({ families: ['hunting_game'], location: eye, maxDistance: Math.min(blockS, c.range) + 4 });
+    candidates = gameEntities(dimension, { location: eye, maxDistance: Math.min(blockS, c.range) + 4 });
   } catch {}
   const near = [];
   for (const e of candidates) {
@@ -199,7 +199,7 @@ export function trace(dimension, eye, dir, calibre, w, shooter) {
 
   // Anything else in the way (vanilla mobs, players).
   try {
-    const hits = dimension.getEntitiesFromRay(eye, dir, { maxDistance: blockS, excludeFamilies: ['hunting_game', 'inanimate', 'hunting_scare'] });
+    const hits = dimension.getEntitiesFromRay(eye, dir, { maxDistance: blockS, excludeFamilies: ['hunting_game', 'hunting_target', 'inanimate', 'hunting_scare'] });
     const h = hits.find((x) => x.entity.id !== shooter?.id);
     if (h) return { kind: 'entity', entity: h.entity, distance: h.distance, energy: energyAt(c, h.distance) };
   } catch {}

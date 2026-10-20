@@ -139,6 +139,77 @@ public class HuntingGameTests {
 		throw new IllegalArgumentException(zone);
 	}
 
+	/**
+	 * Other mods' game (when their jars are on the test runtime: -PcompatJars=a.jar,b.jar): one
+	 * of each creature in turn takes a traced heart shot from the lightest ethical rifle, which
+	 * must hit the heart and grade perfect; brought down, it must carry the carcass tag.
+	 */
+	@GameTest(maxTicks = 2400)
+	public void foreignTargetsAreGame(GameTestHelper helper) {
+		List<Species> foreign = new ArrayList<>();
+		SpeciesRegistry.foreign().forEach(foreign::add);
+		if (foreign.isEmpty()) {
+			helper.succeed();
+			return;
+		}
+		List<String> problems = new ArrayList<>();
+		List<java.util.Map.Entry<String, HuntingData.Calibre>> rifles = HuntingData.CALIBRES.entrySet().stream()
+			.filter(e -> !e.getValue().isShot() && !e.getValue().projectile() && e.getValue().velocity() > 500)
+			.sorted((a, b) -> Double.compare(a.getValue().energy(), b.getValue().energy())).toList();
+		BlockPos pos = new BlockPos(4, 1, 4);
+		for (int i = 0; i < foreign.size(); i++) {
+			Species sp = foreign.get(i);
+			int at = i * 6;
+			helper.runAfterDelay(at + 1, () -> {
+				var type = net.minecraft.core.registries.BuiltInRegistries.ENTITY_TYPE.getValue(net.minecraft.resources.Identifier.parse(sp.id()));
+				if (sp.movement().equals("swim")) helper.setBlock(pos, Blocks.WATER);
+				else helper.setBlock(pos, Blocks.AIR);
+				var e = helper.spawn(type, pos);
+				if (!(e instanceof Mob mob)) {
+					problems.add(sp.id() + ": not a mob");
+					return;
+				}
+				mob.setNoAi(true);
+				if (mob instanceof net.minecraft.world.entity.AgeableMob a) a.setAge(0);
+				helper.runAfterDelay(3, () -> {
+					var t = dk.ulfen.hunting.hunt.HuntTarget.of(mob);
+					if (t == null) {
+						problems.add(sp.id() + ": not game");
+						mob.discard();
+						return;
+					}
+					// Fish are speargun game; the giants don't fit in the test structure for a shot from beside them.
+					if (!sp.movement().equals("swim") && t.modelScale() < 3) {
+						var rifle = rifles.stream().filter(r -> r.getValue().energy() >= sp.game().minEnergy()).findFirst().orElse(rifles.getLast()).getValue();
+						double k = t.modelScale();
+						HitZones.ModelSpace m = new HitZones.ModelSpace(mob.position(), mob.yBodyRot, k);
+						HitZones.Model model = t.hitModel();
+						double[] heart = organCentre(model, "heart");
+						Vec3 target = m.world(heart);
+						// From just beside it (the test structure is small).
+						double side = Math.min(Math.max(model.boundsMax()[0], -model.boundsMin()[0]) + 8, heart[0] + 32 / k); // wings reach far
+						Vec3 from = m.world(new double[] {side, heart[1], heart[2]});
+						// Up close the bullet is still below the line of sight (the rifle is zeroed further out): aim that much higher.
+						Vec3 dir = target.subtract(from).normalize();
+						double dist = target.distanceTo(from);
+						Vec3 aim = target.add(0, from.add(dir.scale(dist)).y - Ballistics.pointAt(rifle, from, dir, Wind.CALM, dist).y, 0);
+						Shooting.Hit hit = Shooting.trace(helper.getLevel(), from, aim.subtract(from).normalize(), rifle, Wind.CALM, null);
+						if (!hit.kind().equals("game") || hit.entity() != mob) problems.add(sp.id() + ": traced shot " + hit.kind());
+						else if (!hit.report().has("heart") || !hit.report().grade().equals("perfect")) problems.add(sp.id() + ": " + hit.report().grade() + " " + hit.report().zones()
+							+ " heart " + java.util.Arrays.toString(heart) + " entry " + java.util.Arrays.toString(hit.report().entry()) + " exit " + java.util.Arrays.toString(hit.report().exit()) + " k " + k);
+					}
+					Wounds.becomeCarcass(t, helper.getLevel(), null, 1);
+					if (!t.isCarcass() || !mob.entityTags().contains(dk.ulfen.hunting.hunt.ForeignTargets.CARCASS_TAG)) problems.add(sp.id() + ": not a carcass");
+					mob.discard();
+				});
+			});
+		}
+		helper.runAfterDelay(foreign.size() * 6 + 6, () -> {
+			if (!problems.isEmpty()) throw fail(helper, problems.size() + " of " + foreign.size() + ": " + String.join("; ", problems.subList(0, Math.min(8, problems.size()))));
+			helper.succeed();
+		});
+	}
+
 	/** A real traced .308 shot from 3 blocks to a deer's left goes through the heart, and a kill leaves a carcass. */
 	@GameTest(maxTicks = 60)
 	public void heartShotDropsDeer(GameTestHelper helper) {
@@ -147,7 +218,7 @@ public class HuntingGameTests {
 		deer.setAge(0);
 		helper.runAfterDelay(5, () -> {
 			HitZones.ModelSpace m = new HitZones.ModelSpace(deer.position(), deer.yBodyRot, deer.getScale());
-			double[] heart = organCentre(Shooting.hitModelFor(deer), "heart");
+			double[] heart = organCentre(deer.hitModel(), "heart");
 			Vec3 target = m.world(heart);
 			Vec3 from = m.world(new double[] {heart[0] + 16 * 3, heart[1], heart[2]});
 			Shooting.Hit hit = Shooting.trace(helper.getLevel(), from, target.subtract(from).normalize(), HuntingData.CALIBRES.get("c308"), Wind.CALM, null);
@@ -228,7 +299,7 @@ public class HuntingGameTests {
 		ServerPlayer player = helper.makeMockServerPlayerInLevel();
 		helper.runAfterDelay(2, () -> {
 			HitZones.ModelSpace m = new HitZones.ModelSpace(fish.position(), fish.yBodyRot, fish.getScale());
-			double[] heart = organCentre(Shooting.hitModelFor(fish), "heart");
+			double[] heart = organCentre(fish.hitModel(), "heart");
 			Vec3 at = m.world(new double[] {heart[0] + 6, heart[1], heart[2]});
 			Vec3 dir = m.world(heart).subtract(at).normalize();
 			HitZones.Report wet = ProjectileHits.hit(fish, helper.getLevel(), player, "harpoon_bolt", at, dir, 1.0, 6);

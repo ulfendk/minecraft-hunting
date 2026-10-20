@@ -62,7 +62,11 @@ public record Species(
 	XrayView xrayView,
 	List<String> xrayZones,
 	List<Loot> loot,
-	String warnSound
+	String warnSound,
+	/** Other mods' creatures (hunting/targets/*.json): their name's lang key, sex rule and extra render scale. */
+	String name,
+	String sex,
+	double modelScale
 ) {
 	/** Hunting data for game animals (null for the dog). */
 	public record Game(String gameClass, double minEnergy, double minShotEnergy, double weightMin, double weightMax, double score,
@@ -80,6 +84,21 @@ public record Species(
 
 	public boolean isGame() {
 		return game != null;
+	}
+
+	/** Another mod's creature (its id has the namespace). */
+	public boolean isForeign() {
+		return id.contains(":");
+	}
+
+	/** Lang key of the species' name. */
+	public String nameKey() {
+		return name != null ? name : "entity.hunting." + id;
+	}
+
+	@Override
+	public double modelScale() {
+		return modelScale > 0 ? modelScale : 1;
 	}
 
 	public dk.ulfen.hunting.hunt.HitZones.Model model() {
@@ -137,7 +156,7 @@ public record Species(
 	}
 
 	public boolean hasAnimation(String name) {
-		return animations.contains(name);
+		return animations != null && animations.contains(name);
 	}
 
 	/** Full GeckoLib animation name, e.g. animation.hunting.lion.walk. */

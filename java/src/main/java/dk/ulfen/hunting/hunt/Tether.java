@@ -5,7 +5,6 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.UUID;
 
-import dk.ulfen.hunting.entity.GameAnimal;
 import dk.ulfen.hunting.entity.GameCreature;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.MinecraftServer;
@@ -70,8 +69,9 @@ public final class Tether {
 		if (old != null) end(old, player, "released");
 		LINES.put(target.getUUID(), new Line(target, player.getUUID(), item, winch, length));
 		target.setLeashedTo(player, true);
-		if (target instanceof GameAnimal a && !a.isCarcass()) {
-			player.sendOverlayMessage(Component.translatable("hunting.line.hooked", Component.translatable("entity.hunting." + a.species().id())));
+		HuntTarget a = HuntTarget.of(target);
+		if (a != null && !a.isCarcass()) {
+			player.sendOverlayMessage(Component.translatable("hunting.line.hooked", a.name()));
 		}
 		player.level().playSound(null, target.blockPosition(), SoundEvents.ARROW_HIT, SoundSource.PLAYERS, 1.0F, 0.7F);
 		return true;
@@ -112,8 +112,9 @@ public final class Tether {
 		}
 		if (player == null) return;
 		give(player, l.item);
-		if (how.equals("landed") && l.target instanceof GameAnimal a) {
-			player.sendOverlayMessage(Component.translatable("hunting.line.landed", Component.translatable("entity.hunting." + a.species().id())));
+		HuntTarget landed = HuntTarget.of(l.target);
+		if (how.equals("landed") && landed != null) {
+			player.sendOverlayMessage(Component.translatable("hunting.line.landed", landed.name()));
 		} else if (how.equals("released")) {
 			player.sendOverlayMessage(Component.translatable("hunting.line.released"));
 		}
@@ -159,7 +160,7 @@ public final class Tether {
 			Vec3 head = player.getEyePosition();
 			Vec3 toPlayer = head.subtract(target.position()).normalize();
 			double d = head.distanceTo(target.position());
-			GameAnimal game = target instanceof GameAnimal g ? g : null;
+			HuntTarget game = HuntTarget.of(target);
 			boolean dead = game == null || game.isCarcass();
 			double kg = game != null ? game.weightKg() : 5;
 

@@ -5,7 +5,6 @@ import java.util.List;
 import java.util.UUID;
 
 import dk.ulfen.hunting.HuntingRegistry;
-import dk.ulfen.hunting.entity.GameAnimal;
 import dk.ulfen.hunting.entity.GameCreature;
 import dk.ulfen.hunting.species.Species;
 import net.minecraft.core.component.DataComponents;
@@ -22,6 +21,7 @@ import net.minecraft.sounds.SoundSource;
 import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.effect.MobEffects;
 import net.minecraft.world.entity.EquipmentSlot;
+import net.minecraft.world.entity.Mob;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
@@ -56,88 +56,94 @@ public final class Wounds {
 		};
 	}
 
-	public static void becomeCarcass(GameAnimal animal, ServerLevel level, @Nullable UUID shooter, long shotId) {
-		if (animal.isCarcass()) return;
-		animal.setHuntState(GameCreature.CARCASS);
-		animal.freezeAi();
-		animal.carcassSince = level.getGameTime();
+	public static void becomeCarcass(HuntTarget t, ServerLevel level, @Nullable UUID shooter, long shotId) {
+		if (t.isCarcass()) return;
+		Mob animal = t.mob();
+		HuntState h = t.hunt();
+		t.setHuntState(GameCreature.CARCASS);
+		t.freezeAi();
+		h.carcassSince = level.getGameTime();
 		animal.removeEffect(MobEffects.SLOWNESS);
 		animal.setDeltaMovement(Vec3.ZERO);
 		animal.getNavigation().stop();
 		animal.setTarget(null);
 		animal.setHealth(animal.getMaxHealth());
-		animal.bleedUntil = -1;
-		if (shooter != null) animal.shooter = shooter;
-		if (shotId != 0) animal.shotId = shotId;
-		if (animal.getDeathSound() != null) level.playSound(null, animal.blockPosition(), animal.getDeathSound(), SoundSource.NEUTRAL, 1.0F, animal.getVoicePitch());
+		h.bleedUntil = -1;
+		if (shooter != null) h.shooter = shooter;
+		if (shotId != 0) h.shotId = shotId;
+		if (t.deathSound() != null) level.playSound(null, animal.blockPosition(), t.deathSound(), SoundSource.NEUTRAL, 1.0F, t.voicePitch());
 	}
 
 	/** Apply an evaluated shot (scripts/wounds.js applyHit). */
-	public static void applyHit(GameAnimal animal, ServerLevel level, HitZones.Report r, ServerPlayer player, long shotId) {
+	public static void applyHit(HuntTarget t, ServerLevel level, HitZones.Report r, ServerPlayer player, long shotId) {
 		if (!r.hit()) {
-			Senses.spook(animal, level, player.position());
+			Senses.spook(t, level, player.position());
 			return;
 		}
-		animal.grade = r.grade();
+		Mob animal = t.mob();
+		HuntState h = t.hunt();
+		h.grade = r.grade();
 		if (r.fate().equals("kill")) {
-			becomeCarcass(animal, level, player.getUUID(), shotId);
+			becomeCarcass(t, level, player.getUUID(), shotId);
 			return;
 		}
 		double max = animal.getMaxHealth();
 		double damage = 0;
 		for (HitZones.ZoneHit z : r.zones()) damage += HuntingData.zone(z.zone()).damage() * (z.percent() / 100.0) * max * 0.6;
-		boolean prev = animal.huntState() == GameCreature.WOUNDED;
+		boolean prev = t.huntState() == GameCreature.WOUNDED;
 		if (r.fate().equals("none") && !prev) {
-			Senses.spook(animal, level, player.position());
+			Senses.spook(t, level, player.position());
 			return;
 		}
 		if ((prev || r.fate().equals("wound")) && animal.getHealth() - damage <= 0) {
-			becomeCarcass(animal, level, player.getUUID(), shotId);
+			becomeCarcass(t, level, player.getUUID(), shotId);
 			return;
 		}
 		if (damage > 0) animal.setHealth((float) Math.max(1, animal.getHealth() - damage));
 		level.broadcastEntityEvent(animal, (byte) 2); // red flash
 		String zone = r.primaryZone();
 		String blood = zone == null ? "none" : HuntingData.zone(zone).blood();
-		if (!blood.equals("none")) animal.blood = blood;
-		else if (!prev) animal.blood = "little";
+		if (!blood.equals("none")) h.blood = blood;
+		else if (!prev) h.blood = "little";
 		double slows = 0;
 		for (HitZones.ZoneHit z : r.zones()) slows = Math.max(slows, HuntingData.zone(z.zone()).slows());
-		animal.slows = Math.max(animal.slows, slows);
+		h.slows = Math.max(h.slows, slows);
 		long now = level.getGameTime();
 		if (r.fate().equals("mortal")) {
-			animal.bleedUntil = now + Math.round(r.bleedSeconds() * 20);
-			animal.recoverAt = -1;
-		} else if (r.fate().equals("wound") && animal.bleedUntil < 0) {
-			animal.recoverAt = now + 20 * 90;
+			h.bleedUntil = now + Math.round(r.bleedSeconds() * 20);
+			h.recoverAt = -1;
+		} else if (r.fate().equals("wound") && h.bleedUntil < 0) {
+			h.recoverAt = now + 20 * 90;
 		}
-		animal.shooter = player.getUUID();
-		animal.shotId = shotId;
-		animal.setHuntState(GameCreature.WOUNDED);
-		Senses.spook(animal, level, player.position());
+		h.shooter = player.getUUID();
+		h.shotId = shotId;
+		t.setHuntState(GameCreature.WOUNDED);
+		Senses.spook(t, level, player.position());
 	}
 
 	/** Every tick per animal: bleeding out, dripping blood, slowing, recovering. */
-	public static void tick(GameAnimal animal, ServerLevel level) {
-		if (animal.huntState() != GameCreature.WOUNDED) return;
+	public static void tick(HuntTarget t, ServerLevel level) {
+		if (t.huntState() != GameCreature.WOUNDED) return;
+		Mob animal = t.mob();
+		HuntState h = t.hunt();
 		long now = level.getGameTime();
-		int every = dripEvery(animal.blood);
+		int every = dripEvery(h.blood);
 		if (every > 0 && now % every == 0) {
 			synchronized (TRAILS) {
 				TRAILS.add(new Drop(level.dimension(), new Vec3(animal.getX(), Math.floor(animal.getY()) + 0.1, animal.getZ()), now + TRAIL_TICKS,
-					animal.blood.equals("dark") || animal.blood.equals("gut")));
+					h.blood.equals("dark") || h.blood.equals("gut")));
 				if (TRAILS.size() > 600) TRAILS.subList(0, TRAILS.size() - 600).clear();
 			}
 		}
-		if (animal.slows > 0 && now % 20 == 0) animal.addEffect(new MobEffectInstance(MobEffects.SLOWNESS, 30, animal.slows > 0.5 ? 2 : 1, false, false));
-		if (animal.bleedUntil >= 0 && now >= animal.bleedUntil) {
-			becomeCarcass(animal, level, animal.shooter, animal.shotId);
+		if (h.slows > 0 && now % 20 == 0) animal.addEffect(new MobEffectInstance(MobEffects.SLOWNESS, 30, h.slows > 0.5 ? 2 : 1, false, false));
+		if (h.bleedUntil >= 0 && now >= h.bleedUntil) {
+			becomeCarcass(t, level, h.shooter, h.shotId);
 			return;
 		}
-		if (animal.recoverAt >= 0 && now >= animal.recoverAt) {
-			animal.recoverAt = -1;
-			animal.slows = 0;
-			animal.setHuntState(GameCreature.CALM);
+		if (h.recoverAt >= 0 && now >= h.recoverAt) {
+			h.recoverAt = -1;
+			h.slows = 0;
+			t.setHuntState(GameCreature.CALM);
 		}
 	}
 
@@ -175,16 +181,18 @@ public final class Wounds {
 	}
 
 	/** Use a knife on a carcass: meat, hide and the trophy. */
-	public static void fieldDress(GameAnimal carcass, ServerLevel level, Player player, ItemStack held) {
+	public static void fieldDress(HuntTarget t, ServerLevel level, Player player, ItemStack held) {
 		if (!held.is(HuntingRegistry.KNIVES)) {
 			player.sendOverlayMessage(Component.translatable("hunting.dress.need_knife"));
 			return;
 		}
-		Species s = carcass.species();
+		Mob carcass = t.mob();
+		HuntState h = t.hunt();
+		Species s = t.species();
 		Species.Game g = s.game();
-		double kg = carcass.weightKg();
+		double kg = t.weightKg();
 		boolean baby = carcass.isBaby();
-		boolean spoiled = player instanceof ServerPlayer sp && Journal.shotNotes(sp, carcass.shotId).contains("meat_damage");
+		boolean spoiled = player instanceof ServerPlayer sp && Journal.shotNotes(sp, h.shotId).contains("meat_damage");
 		for (Species.Loot l : s.loot()) {
 			int n = l.min() + level.getRandom().nextInt(l.max() - l.min() + 1);
 			if (spoiled && l.item().matches(".*(meat|venison|bird|fillet).*")) n /= 2;
@@ -193,19 +201,19 @@ public final class Wounds {
 			if (n > 0) carcass.spawnAtLocation(level, new ItemStack(item, n));
 		}
 		double score = 0;
-		String t = g.trophy();
-		if (t != null && !baby && (carcass.isMale() || t.equals("trophy_skull") || t.equals("trophy_tusks") || !g.maleTrophy())) {
-			score = Math.round(g.score() * (0.6 + 0.8 * carcass.size()) * gradeFactor(carcass.grade) * 10) / 10.0;
-			ItemStack trophy = new ItemStack(HuntingRegistry.item(t));
+		String tr = g.trophy();
+		if (tr != null && !baby && (t.isMale() || tr.equals("trophy_skull") || tr.equals("trophy_tusks") || !g.maleTrophy())) {
+			score = Math.round(g.score() * (0.6 + 0.8 * t.size()) * gradeFactor(h.grade) * 10) / 10.0;
+			ItemStack trophy = new ItemStack(HuntingRegistry.item(tr));
 			trophy.set(DataComponents.LORE, new ItemLore(List.of(
 				Component.literal("★ " + score).withStyle(net.minecraft.ChatFormatting.GOLD),
 				Component.literal(kg + " kg").withStyle(net.minecraft.ChatFormatting.GRAY))));
 			carcass.spawnAtLocation(level, trophy);
-			player.sendSystemMessage(Component.translatable("hunting.trophy.new", Component.translatable("entity.hunting." + s.id()), String.valueOf(score)));
+			player.sendSystemMessage(Component.translatable("hunting.trophy.new", t.name(), String.valueOf(score)));
 			level.playSound(null, player.blockPosition(), SoundEvents.PLAYER_LEVELUP, SoundSource.PLAYERS, 1.0F, 1.2F);
 		}
-		if (player instanceof ServerPlayer sp) Journal.recordTrophy(sp, s.id(), kg, score, carcass.grade, carcass.shotId, level.getOverworldClockTime() / 24000);
-		player.sendOverlayMessage(Component.translatable("hunting.dress.done", Component.translatable("entity.hunting." + s.id())));
+		if (player instanceof ServerPlayer sp) Journal.recordTrophy(sp, s.id(), kg, score, h.grade, h.shotId, level.getOverworldClockTime() / 24000);
+		player.sendOverlayMessage(Component.translatable("hunting.dress.done", t.name()));
 		held.hurtAndBreak(1, player, EquipmentSlot.MAINHAND);
 		level.playSound(null, carcass.blockPosition(), SoundEvents.SHEEP_SHEAR, SoundSource.PLAYERS, 1.0F, 1.0F);
 		carcass.discard();

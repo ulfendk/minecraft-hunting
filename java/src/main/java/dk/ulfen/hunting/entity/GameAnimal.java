@@ -1,13 +1,15 @@
 package dk.ulfen.hunting.entity;
 
-import java.util.EnumSet;
 import java.util.UUID;
 
 import com.geckolib.animatable.instance.AnimatableInstanceCache;
 import com.geckolib.animatable.manager.AnimatableManager;
 import com.geckolib.util.GeckoLibUtil;
 
+import dk.ulfen.hunting.hunt.HuntState;
+import dk.ulfen.hunting.hunt.HuntTarget;
 import dk.ulfen.hunting.hunt.Senses;
+import dk.ulfen.hunting.hunt.TargetGoals;
 import dk.ulfen.hunting.hunt.Tether;
 import dk.ulfen.hunting.hunt.Wounds;
 import dk.ulfen.hunting.species.Species;
@@ -48,7 +50,6 @@ import net.minecraft.world.entity.ai.goal.WaterAvoidingRandomFlyingGoal;
 import net.minecraft.world.entity.ai.goal.WaterAvoidingRandomStrollGoal;
 import net.minecraft.world.entity.ai.navigation.FlyingPathNavigation;
 import net.minecraft.world.entity.ai.navigation.PathNavigation;
-import net.minecraft.world.entity.ai.util.DefaultRandomPos;
 import net.minecraft.world.entity.animal.Animal;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
@@ -63,7 +64,7 @@ import org.jspecify.annotations.Nullable;
  * Every game animal. Behaviour comes from its {@link Species}; hunting state (alert, fleeing,
  * wounded, carcass) is driven by {@link Senses} and {@link Wounds}, like the Bedrock scripts.
  */
-public class GameAnimal extends Animal implements GameCreature {
+public class GameAnimal extends Animal implements GameCreature, HuntTarget {
 	private static final EntityDataAccessor<Boolean> RESTING = SynchedEntityData.defineId(GameAnimal.class, EntityDataSerializers.BOOLEAN);
 	private static final EntityDataAccessor<Integer> VARIANT = SynchedEntityData.defineId(GameAnimal.class, EntityDataSerializers.INT);
 	private static final EntityDataAccessor<Integer> STATE = SynchedEntityData.defineId(GameAnimal.class, EntityDataSerializers.INT);
@@ -73,25 +74,21 @@ public class GameAnimal extends Animal implements GameCreature {
 	private final AnimatableInstanceCache geoCache = GeckoLibUtil.createInstanceCache(this);
 	private int eatTicks;
 
-	// Senses
-	public double awareness;
-	public long fleeUntil;
-	public @Nullable Vec3 fleeFrom;
-	public @Nullable Vec3 lure;
-	public long lureUntil;
-	// Wounds
-	public long bleedUntil = -1;
-	public long recoverAt = -1;
-	public String blood = "none";
-	public double slows;
-	public @Nullable UUID shooter;
-	public long shotId;
-	public String grade = "good";
-	public long carcassSince;
-	private float size = -1;
+	/** Awareness, wounds and the carcass (hunt/Senses, hunt/Wounds). */
+	private final HuntState hunt = new HuntState();
+
+	@Override
+	public Mob mob() {
+		return this;
+	}
+
+	@Override
+	public HuntState hunt() {
+		return this.hunt;
+	}
 
 	public void setSize(float size) {
-		this.size = size;
+		this.hunt.size = size;
 	}
 
 	public GameAnimal(EntityType<? extends GameAnimal> type, Level level) {
@@ -140,10 +137,10 @@ public class GameAnimal extends Animal implements GameCreature {
 	protected void registerGoals() {
 		Species s = species();
 		this.goalSelector.addGoal(0, new FloatGoal(this));
-		this.goalSelector.addGoal(1, new FleeGoal(this, s.fleeSpeed()));
+		this.goalSelector.addGoal(1, new TargetGoals.FleeGoal(this, this, s.fleeSpeed()));
 		if (!s.attacks()) this.goalSelector.addGoal(2, new PanicGoal(this, s.panicSpeed()));
 		this.goalSelector.addGoal(2, new BreedGoal(this, 1.0));
-		this.goalSelector.addGoal(3, new LureGoal(this));
+		this.goalSelector.addGoal(3, new TargetGoals.LureGoal(this, this));
 		this.goalSelector.addGoal(4, new TemptGoal(this, 1.1, this::isTemptItem, false));
 		this.goalSelector.addGoal(5, new FollowParentGoal(this, 1.1));
 		this.goalSelector.addGoal(6, new SleepGoal<>(this));
@@ -210,29 +207,25 @@ public class GameAnimal extends Animal implements GameCreature {
 		return this.entityData.get(STATE);
 	}
 
+	@Override
 	public void setHuntState(int state) {
 		if (state != huntState()) this.entityData.set(STATE, state);
 		if (state >= FLEE) setResting(false);
 	}
 
+	@Override
 	public boolean isCarcass() {
 		return huntState() == CARCASS;
 	}
 
+	@Override
 	public boolean isMale() {
 		return getVariant() == 0;
 	}
 
-	/** 0..1, rolled once: decides weight and trophy score. */
-	public float size() {
-		if (this.size < 0) this.size = this.random.nextFloat() * this.random.nextFloat() < 0.15F ? 0.85F + this.random.nextFloat() * 0.15F : this.random.nextFloat() * 0.85F;
-		return this.size;
-	}
-
-	public double weightKg() {
-		Species.Game g = species().game();
-		double kg = g.weightMin() + (g.weightMax() - g.weightMin()) * size();
-		return Math.round(kg * (this.isBaby() ? 0.3 : 1) * 10) / 10.0;
+	@Override
+	public void playAction(String name) {
+		GameCreature.super.playAction(name);
 	}
 
 	@Override
@@ -255,7 +248,7 @@ public class GameAnimal extends Animal implements GameCreature {
 			if (isCarcass()) {
 				// A carcass lies still, unless it is being reeled in on a line.
 				if (!Tether.isTethered(this)) this.setDeltaMovement(this.getDeltaMovement().multiply(0, 1, 0));
-				if (level.getGameTime() - this.carcassSince > ROT_TICKS) this.discard();
+				if (level.getGameTime() - this.hunt.carcassSince > ROT_TICKS) this.discard();
 				return;
 			}
 			if (this.tickCount % 10 == 0) Senses.step(this, level);
@@ -265,6 +258,7 @@ public class GameAnimal extends Animal implements GameCreature {
 	}
 
 	/** A carcass doesn't think: every goal is switched off. */
+	@Override
 	public void freezeAi() {
 		for (Goal.Flag flag : Goal.Flag.values()) {
 			this.goalSelector.disableControlFlag(flag);
@@ -338,6 +332,7 @@ public class GameAnimal extends Animal implements GameCreature {
 		return id == null ? null : BuiltInRegistries.SOUND_EVENT.getValue(Identifier.parse(id));
 	}
 
+	@Override
 	public @Nullable SoundEvent warnSound() {
 		return sound(species().warnSound());
 	}
@@ -355,6 +350,16 @@ public class GameAnimal extends Animal implements GameCreature {
 	@Override
 	public @Nullable SoundEvent getDeathSound() {
 		return sound(species().sounds().death());
+	}
+
+	@Override
+	public @Nullable SoundEvent deathSound() {
+		return getDeathSound();
+	}
+
+	@Override
+	public float voicePitch() {
+		return getVoicePitch();
 	}
 
 	@Override
@@ -376,15 +381,16 @@ public class GameAnimal extends Animal implements GameCreature {
 		super.addAdditionalSaveData(output);
 		output.putInt("Variant", getVariant());
 		output.putInt("HuntState", huntState());
+		HuntState h = this.hunt;
 		output.putFloat("Size", size());
-		output.putLong("BleedUntil", this.bleedUntil);
-		output.putLong("RecoverAt", this.recoverAt);
-		output.putString("Blood", this.blood);
-		output.putDouble("Slows", this.slows);
-		output.putLong("ShotId", this.shotId);
-		output.putString("Grade", this.grade);
-		output.putLong("CarcassSince", this.carcassSince);
-		if (this.shooter != null) output.putString("Shooter", this.shooter.toString());
+		output.putLong("BleedUntil", h.bleedUntil);
+		output.putLong("RecoverAt", h.recoverAt);
+		output.putString("Blood", h.blood);
+		output.putDouble("Slows", h.slows);
+		output.putLong("ShotId", h.shotId);
+		output.putString("Grade", h.grade);
+		output.putLong("CarcassSince", h.carcassSince);
+		if (h.shooter != null) output.putString("Shooter", h.shooter.toString());
 	}
 
 	@Override
@@ -393,16 +399,17 @@ public class GameAnimal extends Animal implements GameCreature {
 		setVariant(input.getIntOr("Variant", 0));
 		this.entityData.set(STATE, input.getIntOr("HuntState", CALM));
 		if (isCarcass()) freezeAi();
-		this.size = input.getFloatOr("Size", -1);
-		this.bleedUntil = input.getLongOr("BleedUntil", -1);
-		this.recoverAt = input.getLongOr("RecoverAt", -1);
-		this.blood = input.getStringOr("Blood", "none");
-		this.slows = input.getDoubleOr("Slows", 0);
-		this.shotId = input.getLongOr("ShotId", 0);
-		this.grade = input.getStringOr("Grade", "good");
-		this.carcassSince = input.getLongOr("CarcassSince", 0);
+		HuntState h = this.hunt;
+		h.size = input.getFloatOr("Size", -1);
+		h.bleedUntil = input.getLongOr("BleedUntil", -1);
+		h.recoverAt = input.getLongOr("RecoverAt", -1);
+		h.blood = input.getStringOr("Blood", "none");
+		h.slows = input.getDoubleOr("Slows", 0);
+		h.shotId = input.getLongOr("ShotId", 0);
+		h.grade = input.getStringOr("Grade", "good");
+		h.carcassSince = input.getLongOr("CarcassSince", 0);
 		String s = input.getStringOr("Shooter", "");
-		this.shooter = s.isEmpty() ? null : UUID.fromString(s);
+		h.shooter = s.isEmpty() ? null : UUID.fromString(s);
 	}
 
 	// ---------------------------------------------------------------- GeckoLib
@@ -422,73 +429,6 @@ public class GameAnimal extends Animal implements GameCreature {
 		BlockPos below = pos.below();
 		boolean solid = level.getBlockState(below).isFaceSturdy(level, below, net.minecraft.core.Direction.UP);
 		return (solid || level.getFluidState(below).isSource()) && level.getRawBrightness(pos, 0) > 8;
-	}
-
-	// ---------------------------------------------------------------- goals
-
-	/** Spooked or wounded: run away from where the danger is. */
-	static class FleeGoal extends Goal {
-		private final GameAnimal mob;
-		private final double speed;
-
-		FleeGoal(GameAnimal mob, double speed) {
-			this.mob = mob;
-			this.speed = speed;
-			this.setFlags(EnumSet.of(Goal.Flag.MOVE));
-		}
-
-		private boolean fleeing() {
-			int s = this.mob.huntState();
-			return (s == FLEE || s == WOUNDED) && this.mob.fleeFrom != null;
-		}
-
-		@Override
-		public boolean canUse() {
-			return fleeing() && this.mob.getNavigation().isDone() && runAway();
-		}
-
-		@Override
-		public boolean canContinueToUse() {
-			return fleeing() && !this.mob.getNavigation().isDone();
-		}
-
-		private boolean runAway() {
-			Vec3 away = DefaultRandomPos.getPosAway(this.mob, 20, 7, this.mob.fleeFrom);
-			if (away == null) return false;
-			double k = this.mob.huntState() == WOUNDED ? Math.max(0.5, 1 - this.mob.slows * 0.6) : 1;
-			return this.mob.getNavigation().moveTo(away.x, away.y, away.z, this.speed * k);
-		}
-	}
-
-	/** Answering a game call: walk over to where it came from. */
-	static class LureGoal extends Goal {
-		private final GameAnimal mob;
-
-		LureGoal(GameAnimal mob) {
-			this.mob = mob;
-			this.setFlags(EnumSet.of(Goal.Flag.MOVE));
-		}
-
-		private boolean lured() {
-			return this.mob.lure != null && this.mob.huntState() == CALM && this.mob.level().getGameTime() < this.mob.lureUntil
-				&& this.mob.position().distanceTo(this.mob.lure) > 4;
-		}
-
-		@Override
-		public boolean canUse() {
-			return lured();
-		}
-
-		@Override
-		public boolean canContinueToUse() {
-			return lured() && !this.mob.getNavigation().isDone();
-		}
-
-		@Override
-		public void start() {
-			Vec3 l = this.mob.lure;
-			if (l != null) this.mob.getNavigation().moveTo(l.x, l.y, l.z, 1.0);
-		}
 	}
 
 	/** For other code: is this entity a live game animal? */

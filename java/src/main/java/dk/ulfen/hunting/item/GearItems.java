@@ -1,7 +1,8 @@
 package dk.ulfen.hunting.item;
 
 import dk.ulfen.hunting.HuntingRegistry;
-import dk.ulfen.hunting.entity.GameAnimal;
+import dk.ulfen.hunting.entity.GameCreature;
+import dk.ulfen.hunting.hunt.HuntTarget;
 import dk.ulfen.hunting.hunt.Dogs;
 import dk.ulfen.hunting.hunt.Journal;
 import dk.ulfen.hunting.hunt.Senses;
@@ -61,18 +62,18 @@ public final class GearItems {
 			if (!(user instanceof ServerPlayer player) || remaining % 4 != 0) return;
 			Vec3 eye = player.getEyePosition();
 			Vec3 end = eye.add(player.getViewVector(1.0F).scale(256));
-			GameAnimal best = null;
+			HuntTarget best = null;
 			double bestD = Double.MAX_VALUE;
-			for (GameAnimal g : player.level().getEntitiesOfClass(GameAnimal.class, new net.minecraft.world.phys.AABB(eye, end).inflate(2), a -> true)) {
-				var hit = g.getBoundingBox().inflate(0.3).clip(eye, end);
+			for (HuntTarget g : HuntTarget.in(player.level(), new net.minecraft.world.phys.AABB(eye, end).inflate(2), a -> true)) {
+				var hit = g.mob().getBoundingBox().inflate(0.3).clip(eye, end);
 				if (hit.isPresent() && hit.get().distanceTo(eye) < bestD) {
 					best = g;
 					bestD = hit.get().distanceTo(eye);
 				}
 			}
 			if (best != null) {
-				Component name = Component.translatable("entity.hunting." + best.species().id());
-				if (best.species().game() != null && best.species().game().maleTrophy() && !best.isBaby()) {
+				Component name = best.name();
+				if (best.species().game() != null && best.species().game().maleTrophy() && !best.mob().isBaby()) {
 					name = name.copy().append(" (").append(Component.translatable(best.isMale() ? "hunting.hud.buck" : "hunting.hud.doe")).append(")");
 				}
 				player.sendOverlayMessage(Component.translatable("hunting.hud.binoculars", name, String.valueOf(Math.round(bestD)),
@@ -135,10 +136,10 @@ public final class GearItems {
 			level.playSound(null, player.blockPosition(), this.sound, SoundSource.PLAYERS, 4.0F, this.pitch);
 			if (level instanceof ServerLevel server) {
 				Senses.makeNoise(player, 6, 20);
-				for (GameAnimal g : server.getEntitiesOfClass(GameAnimal.class, player.getBoundingBox().inflate(72), a -> !a.isCarcass())) {
-					if (g.species().game() == null || !this.kind.equals(g.species().game().call()) || g.huntState() != GameAnimal.CALM) continue;
-					g.lure = player.position();
-					g.lureUntil = level.getGameTime() + 20 * 25;
+				for (HuntTarget g : HuntTarget.in(server, player.getBoundingBox().inflate(72), a -> !a.isCarcass())) {
+					if (g.species().game() == null || !this.kind.equals(g.species().game().call()) || g.huntState() != GameCreature.CALM) continue;
+					g.hunt().lure = player.position();
+					g.hunt().lureUntil = level.getGameTime() + 20 * 25;
 				}
 				player.sendOverlayMessage(Component.translatable("hunting.call.used", Component.translatable(this.getDescriptionId())));
 				player.getCooldowns().addCooldown(player.getItemInHand(hand), 80);

@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.3.0] - 2026-10-20
+Safari animals and dinosaurs as game, for Bedrock and Java (Fabric):
+- With Safari Animals (0.8.0 or later) or Prehistoric Dinosaurs (0.7.0 or later) installed too, all 41 safari animals and 62 prehistoric creatures are game. Each has organs in its own model, a weight, a minimum calibre and a trophy. A broadside heart shot grades perfect; elephants, hippos and the biggest dinosaurs need a .338.
+- They're spooked and flee like our game, bleed, become carcasses to field dress for their own meat and hides, show up in the shot report and the journal, and the hunting dog tracks them.
+- Other add-ons can do the same: see "Hunting targets for other add-ons" in the README.
+
 ## [0.2.0] - 2026-10-19
 Hunting under water, for Bedrock and Java (Fabric):
 - Three game fish: sea bass (schools in coastal seas), bluefin tuna (deep oceans) and the porbeagle shark (cold and deep water; it turns on a bleeding diver). Fish have gills in the hit zones, flee through the water and float up when dead.

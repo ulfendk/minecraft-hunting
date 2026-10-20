@@ -97,6 +97,9 @@ public final class HuntingRegistry {
 	public static final AttachmentType<List<String>> SEEN = list("seen_game");
 	public static final AttachmentType<Boolean> JOURNAL_GIVEN = AttachmentRegistry.<Boolean>builder()
 		.persistent(Codec.BOOL).copyOnDeath().initializer(() -> false).buildAndRegister(id("journal_given"));
+	/** Hunting state of other mods' creatures that are game (hunt/ForeignTargets). */
+	public static final AttachmentType<dk.ulfen.hunting.hunt.HuntState> HUNT_STATE = AttachmentRegistry.<dk.ulfen.hunting.hunt.HuntState>builder()
+		.persistent(dk.ulfen.hunting.hunt.HuntState.CODEC).initializer(dk.ulfen.hunting.hunt.HuntState::new).buildAndRegister(id("hunt_state"));
 	public static final AttachmentType<Long> SCENT_UNTIL = AttachmentRegistry.<Long>builder()
 		.persistent(Codec.LONG).initializer(() -> 0L).buildAndRegister(id("scent_until"));
 

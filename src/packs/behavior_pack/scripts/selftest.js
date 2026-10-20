@@ -2,7 +2,7 @@ import { ItemStack, system, world } from '@minecraft/server';
 import { ANIMALS, CALIBRES, HARPOONS, ITEMS, ZONE_PRIORITY, ZONES } from './data.js';
 import { windAt } from './lib/ballistics.js';
 import { evaluate, toModel } from './lib/hitzones.js';
-import { getState, scaleOf, speciesOf, STATE } from './game.js';
+import { getState, hitModelOf, scaleOf, speciesOf, STATE, TARGETS } from './game.js';
 import { trace } from './shooting.js';
 import { applyHit } from './wounds.js';
 
@@ -30,6 +30,79 @@ function organCentre(model, zone) {
   const t = [m[3], m[7], m[11]];
   const v = [c[0] - t[0], c[1] - t[1], c[2] - t[2]];
   return [m[0] * v[0] + m[4] * v[1] + m[8] * v[2], m[1] * v[0] + m[5] * v[1] + m[9] * v[2], m[2] * v[0] + m[6] * v[1] + m[10] * v[2]];
+}
+
+/**
+ * A traced rifle shot from 12 blocks through an animal's heart: must hit it, hit the heart
+ * and (applied as a kill) turn it into a carcass. `expect` = 'perfect' also checks the grade.
+ */
+function shotTest(dim, animal, calibre, fail, expect) {
+  const a = speciesOf(animal);
+  const label = animal.typeId;
+  system.runTimeout(() => {
+    try {
+      const model = hitModelOf(animal, a);
+      const c = organCentre(model, 'heart');
+      const heart = toWorld(animal, a, c);
+      const side = toWorld(animal, a, [c[0] + (16 * 12) / scaleOf(animal, a), c[1], c[2]]);
+      const d = { x: heart.x - side.x, y: heart.y - side.y, z: heart.z - side.z };
+      const len = Math.hypot(d.x, d.y, d.z);
+      const dir = { x: d.x / len, y: d.y / len, z: d.z / len };
+      // Bullets fly with drop and wind; a still-air rifle at 12 m drops a millimetre or two.
+      const hit = trace(dim, side, dir, calibre, { x: 0, z: 0, speed: 0 }, undefined);
+      if (hit.kind !== 'game' || hit.entity.id !== animal.id) fail.push(`${label}: traced shot did not hit it (${hit.kind}${hit.entity ? ` ${hit.entity.typeId}` : ''})`);
+      else {
+        if (!hit.report.zones.some((z) => z.zone === 'heart')) fail.push(`${label}: traced shot zones ${hit.report.zones.map((z) => z.zone)}`);
+        if (expect && hit.report.grade !== expect) fail.push(`${label}: traced shot graded ${hit.report.grade}`);
+        const fakePlayer = { id: 'selftest', location: side, sendMessage() {}, onScreenDisplay: { setActionBar() {} } };
+        applyHit(animal, a, { ...hit.report, fate: 'kill' }, fakePlayer, 1);
+      }
+    } catch (e) {
+      fail.push(`${label}: shot test threw ${e}`);
+    }
+  }, 2);
+  system.runTimeout(() => {
+    if (!animal.isValid) fail.push(`${label}: gone after the shot`);
+    else if (getState(animal) !== STATE.carcass) fail.push(`${label}: did not become a carcass`);
+  }, 8);
+}
+
+/**
+ * Used by tools/bds-test.sh when other add-ons are loaded too. Message = space-separated
+ * type ids (safari:zebra...) that must have registered as game; one of each in the world
+ * is shot through the heart with the lightest ethical rifle and must grade perfect.
+ */
+export function selfTestTargets(message) {
+  const fail = [];
+  const dim = world.getDimension('overworld');
+  const rifles = Object.entries(CALIBRES).filter(([, c]) => !c.pellets && !c.projectile && c.velocity > 500).sort((p, q) => p[1].energy - q[1].energy);
+  for (const typeId of message.split(/\s+/).filter(Boolean)) {
+    const a = TARGETS.get(typeId);
+    if (!a) {
+      fail.push(`${typeId}: not registered`);
+      continue;
+    }
+    const animal = dim.getEntities({ type: typeId }).find((e) => getState(e) === STATE.calm && !e.getComponent('minecraft:is_baby'));
+    if (!animal) {
+      fail.push(`${typeId}: none in the world`);
+      continue;
+    }
+    if (a.fish) {
+      // Fish are speargun game (a rifle bullet stops at the water): just bring it down.
+      const fakePlayer = { id: 'selftest', location: animal.location, sendMessage() {}, onScreenDisplay: { setActionBar() {} } };
+      applyHit(animal, a, { hit: true, zones: [{ zone: 'heart', percent: 100 }], fate: 'kill', grade: 'perfect', bleedSeconds: 0 }, fakePlayer, 1);
+      system.runTimeout(() => {
+        if (!animal.isValid || getState(animal) !== STATE.carcass) fail.push(`${typeId}: did not become a carcass`);
+      }, 8);
+      continue;
+    }
+    const [id, c] = rifles.find(([, r]) => r.energy >= a.game.minEnergy) ?? rifles[rifles.length - 1];
+    shotTest(dim, animal, { ...c, id }, fail, 'perfect');
+  }
+  const registered = [...TARGETS.values()].filter((a) => a.foreign).length;
+  system.runTimeout(() => {
+    console.log(fail.length ? `[Realistic Hunting] target selftest FAIL (${registered} registered): ${fail.join('; ')}` : `[Realistic Hunting] target selftest PASS (${registered} registered)`);
+  }, 12);
 }
 
 /**
@@ -89,30 +162,8 @@ export function selfTest(message) {
   const deer = dim.getEntities({ type: 'hunting:white_tailed_deer' }).find((e) => getState(e) === STATE.calm);
   if (!deer) fail.push('no deer for the shot test');
   else {
-    const a = speciesOf(deer);
     if (deer.getComponent('minecraft:is_baby')) deer.triggerEvent('hunting:grow_up');
-    system.runTimeout(() => {
-      try {
-        const heart = toWorld(deer, a, organCentre(a.hitModel, 'heart'));
-        const side = toWorld(deer, a, [organCentre(a.hitModel, 'heart')[0] + 16 * 12, organCentre(a.hitModel, 'heart')[1], organCentre(a.hitModel, 'heart')[2]]);
-        const d = { x: heart.x - side.x, y: heart.y - side.y, z: heart.z - side.z };
-        const len = Math.hypot(d.x, d.y, d.z);
-        const dir = { x: d.x / len, y: d.y / len, z: d.z / len };
-        // Bullets fly with drop and wind; a still-air .308 at 12 m drops a millimetre or two.
-        const hit = trace(dim, side, dir, { ...c308, id: 'c308' }, { x: 0, z: 0, speed: 0 }, undefined);
-        if (hit.kind !== 'game' || hit.entity.id !== deer.id) fail.push(`traced shot did not hit the deer (${hit.kind})`);
-        else {
-          if (!hit.report.zones.some((z) => z.zone === 'heart')) fail.push(`traced shot zones ${hit.report.zones.map((z) => z.zone)}`);
-          const fakePlayer = { id: 'selftest', location: side, sendMessage() {}, onScreenDisplay: { setActionBar() {} } };
-          applyHit(deer, a, { ...hit.report, fate: 'kill' }, fakePlayer, 1);
-        }
-      } catch (e) {
-        fail.push(`shot test threw ${e}`);
-      }
-    }, 2);
-    system.runTimeout(() => {
-      if (deer.isValid && getState(deer) !== STATE.carcass) fail.push('deer did not become a carcass');
-    }, 8);
+    shotTest(dim, deer, { ...c308, id: 'c308' }, fail);
   }
   system.runTimeout(() => {
     console.log(fail.length ? `[Realistic Hunting] selftest FAIL: ${fail.join('; ')}` : '[Realistic Hunting] selftest PASS');

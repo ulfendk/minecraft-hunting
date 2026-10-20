@@ -1,6 +1,7 @@
 package dk.ulfen.hunting;
 
 import dk.ulfen.hunting.hunt.Diving;
+import dk.ulfen.hunting.hunt.ForeignTargets;
 import dk.ulfen.hunting.hunt.HuntingData;
 import dk.ulfen.hunting.hunt.Journal;
 import dk.ulfen.hunting.hunt.Senses;
@@ -25,6 +26,7 @@ public class RealisticHunting implements ModInitializer {
 		HuntingRegistry.register();
 		HuntingWorldgen.register();
 		HuntingNetwork.register();
+		ForeignTargets.register();
 
 		ServerTickEvents.END_SERVER_TICK.register(server -> {
 			Wounds.showTrails(server);

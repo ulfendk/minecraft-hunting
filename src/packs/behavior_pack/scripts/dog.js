@@ -2,7 +2,7 @@
 // nearest animal you wounded or brought down, and barks when it finds it. Shot birds it
 // carries back to you.
 import { system, world } from '@minecraft/server';
-import { getState, nameOf, speciesOf, STATE } from './game.js';
+import { gameEntities, getState, nameOf, speciesOf, STATE } from './game.js';
 import { dist } from './util.js';
 import { placeCarcass } from './wounds.js';
 
@@ -20,7 +20,7 @@ function ownedDogs(player) {
 function quarryNear(dog, player) {
   let best, bestD = Infinity;
   try {
-    for (const e of dog.dimension.getEntities({ families: ['hunting_game'], location: dog.location, maxDistance: 160 })) {
+    for (const e of gameEntities(dog.dimension, { location: dog.location, maxDistance: 160 })) {
       const st = getState(e);
       if (st < STATE.wounded || !speciesOf(e)) continue;
       const shooter = e.getDynamicProperty('hunting:shooter');
@@ -84,7 +84,7 @@ function tick() {
     }
     let found;
     try {
-      found = dog.dimension.getEntities({ families: ['hunting_game'], location: dog.location, maxDistance: 3 }).find((e) => getState(e) >= STATE.wounded);
+      found = gameEntities(dog.dimension, { location: dog.location, maxDistance: 3 }).find((e) => getState(e) >= STATE.wounded);
     } catch {}
     if (!found) {
       if (now % 40 === 0) dog.dimension.playSound('mob.fox.sniff', dog.location, { pitch: 0.8 });

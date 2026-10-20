@@ -9,7 +9,6 @@ import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 
 import dk.ulfen.hunting.HuntingRegistry;
-import dk.ulfen.hunting.entity.GameAnimal;
 import dk.ulfen.hunting.net.HuntingNetwork;
 import net.minecraft.ChatFormatting;
 import net.minecraft.network.chat.Component;
@@ -53,7 +52,7 @@ public final class Journal {
 	}
 
 	/** Store a shot, tell the player, and send the report to the client (x-ray flash + R to open). */
-	public static long recordShot(ServerPlayer player, GameAnimal animal, HitZones.Report r, double distance, String calibre, double energy, int pellets, int pelletsHit) {
+	public static long recordShot(ServerPlayer player, HuntTarget animal, HitZones.Report r, double distance, String calibre, double energy, int pellets, int pelletsHit) {
 		long id = System.currentTimeMillis() % 1_000_000_000L;
 		JsonObject o = new JsonObject();
 		o.addProperty("id", id);
@@ -83,11 +82,11 @@ public final class Journal {
 		String zone = r.primaryZone();
 		o.addProperty("blood", zone == null ? "none" : HuntingData.zone(zone).blood());
 		if (zone != null) o.addProperty("zone", zone);
-		o.addProperty("male", animal.isMale() && !animal.isBaby());
+		o.addProperty("male", animal.isMale() && !animal.mob().isBaby());
 		String json = o.toString();
 		add(player, HuntingRegistry.SHOTS, json, MAX_SHOTS);
 
-		Component name = Component.translatable("entity.hunting." + animal.species().id());
+		Component name = animal.name();
 		player.sendOverlayMessage(Component.empty().append(name.copy().withStyle(ChatFormatting.BOLD))
 			.append(" · " + color(r.grade())).append(Component.translatable("hunting.grade." + r.grade())).append("§r · " + r.accuracy() + "%"));
 		MutableComponent line = Component.literal(color(r.grade())).append(Component.translatable("hunting.grade." + r.grade())).append("§r: ").append(name)
@@ -139,12 +138,16 @@ public final class Journal {
 	public static void spot(ServerPlayer player) {
 		List<String> seen = new ArrayList<>(player.getAttachedOrCreate(HuntingRegistry.SEEN));
 		boolean changed = false;
-		for (var mob : player.level().getEntitiesOfClass(net.minecraft.world.entity.Mob.class, player.getBoundingBox().inflate(16), m -> m instanceof dk.ulfen.hunting.entity.GameCreature)) {
-			String id = net.minecraft.core.registries.BuiltInRegistries.ENTITY_TYPE.getKey(mob.getType()).getPath();
+		for (var mob : player.level().getEntitiesOfClass(net.minecraft.world.entity.Mob.class, player.getBoundingBox().inflate(16), m -> m instanceof dk.ulfen.hunting.entity.GameCreature || ForeignTargets.isGame(m))) {
+			// Our species without namespace, other mods' game with.
+			var key = net.minecraft.core.registries.BuiltInRegistries.ENTITY_TYPE.getKey(mob.getType());
+			String id = key.getNamespace().equals("hunting") ? key.getPath() : key.toString();
 			if (seen.contains(id)) continue;
+			var species = dk.ulfen.hunting.species.SpeciesRegistry.find(id);
+			if (species == null) continue;
 			seen.add(id);
 			changed = true;
-			player.sendOverlayMessage(Component.translatable("hunting.journal.spotted", Component.translatable("entity.hunting." + id)));
+			player.sendOverlayMessage(Component.translatable("hunting.journal.spotted", Component.translatable(species.nameKey())));
 			player.level().playSound(null, player.blockPosition(), net.minecraft.sounds.SoundEvents.EXPERIENCE_ORB_PICKUP, net.minecraft.sounds.SoundSource.PLAYERS, 0.6F, 1.4F);
 		}
 		if (changed) player.setAttached(HuntingRegistry.SEEN, seen);

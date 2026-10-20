@@ -33,7 +33,7 @@ function organCentre(model, zone) {
 }
 
 /**
- * A traced rifle shot from 12 blocks through an animal's heart: must hit it, hit the heart
+ * A traced rifle shot from 4 blocks through an animal's heart: must hit it, hit the heart
  * and (applied as a kill) turn it into a carcass. `expect` = 'perfect' also checks the grade.
  */
 function shotTest(dim, animal, calibre, fail, expect) {
@@ -44,11 +44,12 @@ function shotTest(dim, animal, calibre, fail, expect) {
       const model = hitModelOf(animal, a);
       const c = organCentre(model, 'heart');
       const heart = toWorld(animal, a, c);
-      const side = toWorld(animal, a, [c[0] + (16 * 12) / scaleOf(animal, a), c[1], c[2]]);
+      // From 4 blocks: closer than the next animal in bds-test.sh's grid (6 apart).
+      const side = toWorld(animal, a, [c[0] + (16 * 4) / scaleOf(animal, a), c[1], c[2]]);
       const d = { x: heart.x - side.x, y: heart.y - side.y, z: heart.z - side.z };
       const len = Math.hypot(d.x, d.y, d.z);
       const dir = { x: d.x / len, y: d.y / len, z: d.z / len };
-      // Bullets fly with drop and wind; a still-air rifle at 12 m drops a millimetre or two.
+      // Bullets fly with drop and wind; a still-air rifle at 4 m drops a millimetre or so.
       const hit = trace(dim, side, dir, calibre, { x: 0, z: 0, speed: 0 }, undefined);
       if (hit.kind !== 'game' || hit.entity.id !== animal.id) fail.push(`${label}: traced shot did not hit it (${hit.kind}${hit.entity ? ` ${hit.entity.typeId}` : ''})`);
       else {

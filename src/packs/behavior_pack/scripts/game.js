@@ -187,7 +187,9 @@ function refreshHud(player) {
   const h = hud.get(player.id) ?? {};
   const text = `${h.scope ?? ''}${h.xray ?? ''}`;
   try {
-    if (!text) player.onScreenDisplay.clearTitle();
+    // clearTitle() can leave the old text in the HUD's title binding (and the overlay up), so
+    // overwrite it with a code that matches no overlay.
+    if (!text) player.onScreenDisplay.setTitle('§r', { fadeInDuration: 0, stayDuration: 1, fadeOutDuration: 0 });
     else player.onScreenDisplay.setTitle(text, { fadeInDuration: 0, stayDuration: 72000, fadeOutDuration: 0 });
   } catch {}
 }

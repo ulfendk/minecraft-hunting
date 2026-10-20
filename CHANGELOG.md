@@ -1,5 +1,9 @@
 # Changelog
 
+## [0.3.2] - 2026-10-20
+Fixes, for Bedrock:
+- The x-ray (and the scope) no longer stays on screen as a dark rectangle after it should have gone away.
+
 ## [0.3.1] - 2026-10-20
 Fixes, for Bedrock:
 - The x-ray button in the journal now shows the x-ray: a species page shows the whole animal, and a shot report whose hit zone has no picture of its own does too (before, the species page just went back to the list).

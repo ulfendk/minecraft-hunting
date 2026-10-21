@@ -65,7 +65,7 @@ const UI = {
   'hunting.report.organs': ['Hit:', 'Ramt:'],
   'hunting.report.blood': ['Blood: %s', 'Blod: %s'],
   'hunting.report.pellets': ['Pellets on target: %s of %s', 'Hagl i målet: %s af %s'],
-  'hunting.report.outcome.kill': ['Killed on the spot.', 'Dræbt på stedet.'],
+  'hunting.report.outcome.kill': ['Killed. It goes down after a few steps.', 'Dræbt. Dyret falder efter få skridt.'],
   'hunting.report.outcome.mortal': ['Mortally hit. Expect it to run about %s m before it goes down.', 'Dødeligt ramt. Regn med en flugt på omkring %s m, før det falder.'],
   'hunting.report.outcome.wound': ['Wounded. It will recover unless you follow up.', 'Anskudt. Dyret kommer sig, medmindre du eftersøger det.'],
   'hunting.report.outcome.none': ['No effect.', 'Ingen virkning.'],

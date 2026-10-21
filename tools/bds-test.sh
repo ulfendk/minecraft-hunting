@@ -112,7 +112,7 @@ sleep 10
 send camera @a fov_set 20 0.15
 send camera @a fov_clear 0.15
 send scriptevent hunting:selftest "$ids"
-sleep 3
+sleep 5
 if [[ -n "$targets" ]]; then
   # One of each, far apart, out of the way of the grid (the test picks a calm adult).
   send tickingarea add -4 -64 56 200 0 64 hunting_compat true
@@ -133,7 +133,7 @@ if [[ -n "$targets" ]]; then
   done
   sleep 8
   send scriptevent hunting:selftest_targets "$list"
-  sleep 3
+  sleep 5
 fi
 
 LOG=$(docker logs "$NAME" 2>&1)

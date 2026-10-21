@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.3] - 2026-10-21
+Hit animals, for Bedrock and Java (Fabric):
+- A good hit is enough: shooting an animal that is already bleeding out no longer restarts its clock (before, every follow-up shot kept it alive longer). Now a second good hit brings it down after a few more steps.
+- Heart, lung and gill shots go down sooner: about 3 s for the heart, 6 s for the lungs (4 s through both), 4 s for the gills.
+- Every hit animal runs: even a brain or spine shot, or a close load of shot, lets it take a few last steps (about 1.5 s) before it drops.
+- Bedrock: an animal that ran out of the simulation distance, or was hit before the world was reloaded, no longer stays wounded for ever; it goes down once it is loaded again.
+
 ## [0.3.2] - 2026-10-20
 Fixes, for Bedrock:
 - The x-ray (and the scope) no longer stays on screen as a dark rectangle after it should have gone away.

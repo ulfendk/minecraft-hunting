@@ -227,7 +227,7 @@ public final class HitZones {
 			if (f.equals("mortal")) bleed = Math.min(bleed, b);
 		}
 		double lungs = totals.getOrDefault("lungs", 0.0);
-		if (lungs > model.zoneSize().getOrDefault("lungs", 8.0) * 0.8) bleed = Math.min(bleed, 6);
+		if (lungs > model.zoneSize().getOrDefault("lungs", 8.0) * 0.8) bleed = Math.min(bleed, 4);
 
 		String grade;
 		// Gills are a fish's lungs.

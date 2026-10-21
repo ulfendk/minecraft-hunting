@@ -267,6 +267,24 @@ public class HuntingGameTests {
 		});
 	}
 
+	/** Even a brain shot runs a few steps before it drops, and another hit on a bleeding animal never buys it time. */
+	@GameTest(maxTicks = 100)
+	public void hitAnimalRunsBeforeDropping(GameTestHelper helper) {
+		GameAnimal deer = (GameAnimal) helper.spawn(HuntingRegistry.ANIMALS.get("white_tailed_deer"), new BlockPos(4, 1, 4));
+		ServerPlayer player = helper.makeMockServerPlayerInLevel();
+		HitZones.Report brain = new HitZones.Report(true, List.of(new HitZones.ZoneHit("brain", 80)), "kill", 0, 90, "good", null, null, "left", "right", false, List.of());
+		Wounds.applyHit(deer, helper.getLevel(), brain, player, 7);
+		if (deer.isCarcass()) throw fail(helper, "dropped on the spot");
+		if (deer.huntState() != GameCreature.WOUNDED) throw fail(helper, "not running: " + deer.huntState());
+		long until = deer.hunt().bleedUntil;
+		HitZones.Report lungs = new HitZones.Report(true, List.of(new HitZones.ZoneHit("lungs", 60)), "mortal", 6, 80, "perfect", null, null, "left", "right", false, List.of());
+		Wounds.applyHit(deer, helper.getLevel(), lungs, player, 8);
+		if (deer.hunt().bleedUntil > until) throw fail(helper, "the second hit bought it time: " + until + " -> " + deer.hunt().bleedUntil);
+		helper.succeedWhen(() -> {
+			if (!deer.isCarcass()) throw fail(helper, "has not gone down yet");
+		});
+	}
+
 	// ---------------------------------------------------------------- spearfishing
 
 	/** Fill a box (relative coordinates, inclusive) with water, walled in with glass so it can't spill out. */

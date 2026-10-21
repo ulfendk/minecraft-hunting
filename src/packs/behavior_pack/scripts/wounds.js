@@ -1,4 +1,4 @@
-// What a hit does to a game animal: drops it on the spot, lets it run and bleed out, or
+// What a hit does to a game animal: lets it run a few steps and drop, run and bleed out, or
 // leaves it wounded. Wounded animals leave a blood trail. A dead game animal stays as a
 // carcass until it is field dressed with a knife (meat, hide and trophy).
 import { ItemStack, MolangVariableMap, system, world } from '@minecraft/server';
@@ -11,6 +11,8 @@ import { heldItem, wearSelected } from './util.js';
 const bleeding = new Map(); // entity id -> { until, blood, shooter, shotId, drip, recoverAt }
 const trails = []; // { dimension, location, until, blood }
 const TRAIL_TICKS = 20 * 60 * 10;
+/** Even a perfect hit runs a few metres before it goes down; so does a bleeding animal hit again. */
+export const LAST_RUN = 30;
 const DRIP = { bright: 10, frothy: 10, gills: 10, dark: 14, gut: 24, little: 40, none: 0 };
 
 const GRADE_FACTOR = { perfect: 1, good: 0.95, poor: 0.85, unethical: 0.7, miss: 0.7 };
@@ -55,6 +57,7 @@ export function becomeCarcass(entity, a, shooter, shotId) {
     health?.resetToMaxValue();
     if (shooter) entity.setDynamicProperty('hunting:shooter', shooter);
     if (shotId) entity.setDynamicProperty('hunting:shot', shotId);
+    entity.setDynamicProperty('hunting:mortal', undefined);
     if (a.sounds?.death) entity.dimension.playSound(a.sounds.death, entity.location);
   } catch {}
   bleeding.delete(entity.id);
@@ -73,10 +76,6 @@ export function applyHit(entity, a, report, player, shotId) {
   }
   const blood = bloodOf(report);
   try { entity.setDynamicProperty('hunting:grade', report.grade); } catch {}
-  if (report.fate === 'kill') {
-    becomeCarcass(entity, a, player.id, shotId);
-    return;
-  }
   const health = entity.getComponent('minecraft:health');
   const max = health?.effectiveMax ?? a.health;
   let damage = 0;
@@ -86,8 +85,9 @@ export function applyHit(entity, a, report, player, shotId) {
     spook(entity, a, now);
     return;
   }
+  const mortal = report.fate === 'kill' || report.fate === 'mortal';
   // A second wound on an already wounded animal can finish it.
-  if (health && (prev || report.fate === 'wound') && health.currentValue - damage <= 0) {
+  if (health && !mortal && (prev || report.fate === 'wound') && health.currentValue - damage <= 0) {
     becomeCarcass(entity, a, player.id, shotId);
     return;
   }
@@ -96,15 +96,28 @@ export function applyHit(entity, a, report, player, shotId) {
     entity.applyDamage(0.01, { cause: 'projectile', damagingEntity: player });
   } catch {}
   const slows = Math.max(...report.zones.map((z) => ZONES[z.zone]?.slows ?? 0), 0);
+  let until = prev?.until ?? Infinity;
+  if (mortal) {
+    let run = report.fate === 'kill' ? LAST_RUN : Math.round(report.bleedSeconds * 20);
+    // Another good hit on a bleeding animal finishes it; it never buys it time.
+    if (until !== Infinity) run = Math.min(run, LAST_RUN);
+    until = Math.min(until, now + run);
+    // Survives a reload (the map doesn't): see settle().
+    try {
+      entity.setDynamicProperty('hunting:mortal', true);
+      entity.setDynamicProperty('hunting:shooter', player.id);
+      entity.setDynamicProperty('hunting:shot', shotId);
+    } catch {}
+  }
   const rec = {
-    until: report.fate === 'mortal' ? now + Math.round(report.bleedSeconds * 20) : prev?.until ?? Infinity,
+    until,
     blood: blood !== 'none' ? blood : prev?.blood ?? 'little',
     shooter: player.id,
     shotId,
     slows: Math.max(slows, prev?.slows ?? 0),
     recoverAt: report.fate === 'wound' && !prev?.until ? now + 20 * 90 : prev?.recoverAt,
   };
-  if (report.fate === 'mortal') rec.recoverAt = undefined;
+  if (mortal) rec.recoverAt = undefined;
   bleeding.set(entity.id, rec);
   setState(entity, STATE.wounded);
   spook(entity, a, now);
@@ -114,7 +127,8 @@ function tickWounded(now) {
   for (const [id, rec] of bleeding) {
     const e = world.getEntity(id);
     if (!e?.isValid) {
-      bleeding.delete(id);
+      // It ran out of the simulation distance: keep the clock running, it goes down once it is loaded again.
+      if (now > (rec.until !== Infinity ? rec.until : rec.recoverAt ?? 0) + TRAIL_TICKS) bleeding.delete(id);
       continue;
     }
     const a = speciesOf(e);
@@ -132,6 +146,17 @@ function tickWounded(now) {
       setState(e, STATE.calm);
     }
   }
+}
+
+/** A wounded animal loaded from the save has lost its record: a mortal wound brings it down, any other heals. */
+function settle(entity) {
+  try {
+    if (bleeding.has(entity.id) || getState(entity) !== STATE.wounded) return;
+    const a = speciesOf(entity);
+    if (!a) return;
+    if (entity.getDynamicProperty('hunting:mortal')) becomeCarcass(entity, a, entity.getDynamicProperty('hunting:shooter'), entity.getDynamicProperty('hunting:shot'));
+    else setState(entity, STATE.calm);
+  } catch {}
 }
 
 /** Lay down a carcass that was carried somewhere (the dog fetching a bird). */
@@ -203,8 +228,13 @@ export function setupWounds() {
     if (getState(target) !== STATE.carcass || !speciesOf(target)) return;
     system.run(() => fieldDress(player, target));
   });
-  // Carcasses that rot away take their bleeding records with them.
-  world.afterEvents.entityRemove.subscribe(({ removedEntityId }) => bleeding.delete(removedEntityId));
+  // Not entityRemove: that also fires when an animal that ran off is merely unloaded (tickWounded tidies up).
+  world.afterEvents.entityLoad.subscribe(({ entity }) => system.run(() => settle(entity)));
+  system.runTimeout(() => {
+    for (const id of ['overworld', 'nether', 'the_end']) {
+      try { for (const e of world.getDimension(id).getEntities()) settle(e); } catch {}
+    }
+  }, 40);
 }
 
 export function isBleeding(entity) {

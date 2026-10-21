@@ -31,8 +31,8 @@ import net.minecraft.world.phys.Vec3;
 import org.jspecify.annotations.Nullable;
 
 /**
- * What a hit does to a game animal (the Java twin of scripts/wounds.js): drops it on the spot,
- * lets it run and bleed out, or leaves it wounded with a blood trail. A dead game animal stays
+ * What a hit does to a game animal (the Java twin of scripts/wounds.js): lets it run a few steps
+ * and drop, run and bleed out, or leaves it wounded with a blood trail. A dead game animal stays
  * as a carcass until it is field dressed with a knife (the hunting:knives item tag).
  */
 public final class Wounds {
@@ -40,6 +40,8 @@ public final class Wounds {
 
 	private static final List<Drop> TRAILS = new ArrayList<>();
 	private static final int TRAIL_TICKS = 20 * 60 * 10;
+	/** Even a perfect hit runs a few metres before it goes down; so does a bleeding animal hit again. */
+	public static final int LAST_RUN = 30;
 	private static final DustParticleOptions BRIGHT = new DustParticleOptions(0xB01818, 0.7F);
 	private static final DustParticleOptions DARK = new DustParticleOptions(0x5A0808, 0.7F);
 	private static final DustParticleOptions GLOW = new DustParticleOptions(0xFF3030, 1.1F);
@@ -83,10 +85,6 @@ public final class Wounds {
 		Mob animal = t.mob();
 		HuntState h = t.hunt();
 		h.grade = r.grade();
-		if (r.fate().equals("kill")) {
-			becomeCarcass(t, level, player.getUUID(), shotId);
-			return;
-		}
 		double max = animal.getMaxHealth();
 		double damage = 0;
 		for (HitZones.ZoneHit z : r.zones()) damage += HuntingData.zone(z.zone()).damage() * (z.percent() / 100.0) * max * 0.6;
@@ -95,7 +93,9 @@ public final class Wounds {
 			Senses.spook(t, level, player.position());
 			return;
 		}
-		if ((prev || r.fate().equals("wound")) && animal.getHealth() - damage <= 0) {
+		boolean mortal = r.fate().equals("kill") || r.fate().equals("mortal");
+		// A second wound on an already wounded animal can finish it.
+		if (!mortal && (prev || r.fate().equals("wound")) && animal.getHealth() - damage <= 0) {
 			becomeCarcass(t, level, player.getUUID(), shotId);
 			return;
 		}
@@ -109,8 +109,11 @@ public final class Wounds {
 		for (HitZones.ZoneHit z : r.zones()) slows = Math.max(slows, HuntingData.zone(z.zone()).slows());
 		h.slows = Math.max(h.slows, slows);
 		long now = level.getGameTime();
-		if (r.fate().equals("mortal")) {
-			h.bleedUntil = now + Math.round(r.bleedSeconds() * 20);
+		if (mortal) {
+			long run = r.fate().equals("kill") ? LAST_RUN : Math.round(r.bleedSeconds() * 20);
+			// Another good hit on a bleeding animal finishes it; it never buys it time.
+			if (h.bleedUntil >= 0) run = Math.min(run, LAST_RUN);
+			h.bleedUntil = h.bleedUntil >= 0 ? Math.min(h.bleedUntil, now + run) : now + run;
 			h.recoverAt = -1;
 		} else if (r.fate().equals("wound") && h.bleedUntil < 0) {
 			h.recoverAt = now + 20 * 90;

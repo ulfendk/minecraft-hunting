@@ -166,7 +166,7 @@ export function evaluate({ model, zones, priority, o, d, energy, penetration, cm
   }
   // Both lungs: faster.
   const lungs = totals.get('lungs') ?? 0;
-  if (lungs > (sizes.lungs ?? 8) * 0.8) bleed = Math.min(bleed, 6);
+  if (lungs > (sizes.lungs ?? 8) * 0.8) bleed = Math.min(bleed, 4);
   if (fate !== 'mortal') bleed = fate === 'kill' ? 0 : 0;
 
   const has = (z) => totals.has(z);

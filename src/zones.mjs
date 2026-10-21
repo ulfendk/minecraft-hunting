@@ -2,7 +2,7 @@
 // Shared by the Bedrock scripts (via scripts/data.js), the Java mod (via species.json),
 // the x-ray images and the website.
 //
-//   fate      kill      drops on the spot
+//   fate      kill      goes down after a last few steps (wounds.js LAST_RUN)
 //             mortal    runs, bleeds out after `bleedSeconds`
 //             wound     runs, bleeds a little, recovers unless shot again
 //             none      no effect (antlers, a feather)
@@ -13,9 +13,9 @@
 export const ZONES = {
   brain: { name: 'Brain', fate: 'kill', bleedSeconds: 0, damage: 1.0, density: 1.6, vital: true, color: '#f2e6b8', blood: 'none' },
   spine: { name: 'Spine', fate: 'kill', bleedSeconds: 0, damage: 1.0, density: 2.2, vital: true, color: '#fff7e0', blood: 'none' },
-  heart: { name: 'Heart', fate: 'mortal', bleedSeconds: 4, damage: 0.9, density: 1.0, vital: true, color: '#d8242c', blood: 'bright' },
-  lungs: { name: 'Lungs', fate: 'mortal', bleedSeconds: 10, damage: 0.7, density: 0.5, vital: true, color: '#f07c8c', blood: 'frothy' },
-  gills: { name: 'Gills', fate: 'mortal', bleedSeconds: 6, damage: 0.7, density: 0.5, vital: true, color: '#e0566a', blood: 'gills' },
+  heart: { name: 'Heart', fate: 'mortal', bleedSeconds: 3, damage: 0.9, density: 1.0, vital: true, color: '#d8242c', blood: 'bright' },
+  lungs: { name: 'Lungs', fate: 'mortal', bleedSeconds: 6, damage: 0.7, density: 0.5, vital: true, color: '#f07c8c', blood: 'frothy' },
+  gills: { name: 'Gills', fate: 'mortal', bleedSeconds: 4, damage: 0.7, density: 0.5, vital: true, color: '#e0566a', blood: 'gills' },
   liver: { name: 'Liver', fate: 'mortal', bleedSeconds: 45, damage: 0.5, density: 1.0, vital: false, color: '#7a1f2a', blood: 'dark' },
   stomach: { name: 'Stomach', fate: 'mortal', bleedSeconds: 150, damage: 0.3, density: 0.8, vital: false, color: '#7a9a3a', blood: 'gut' },
   shoulder: { name: 'Shoulder', fate: 'wound', bleedSeconds: 0, damage: 0.35, density: 2.0, vital: false, color: '#c9b48a', blood: 'little', slows: 0.5 },

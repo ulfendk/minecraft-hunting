@@ -4,7 +4,7 @@ import { windAt } from './lib/ballistics.js';
 import { evaluate, toModel } from './lib/hitzones.js';
 import { getState, hitModelOf, scaleOf, speciesOf, STATE, TARGETS } from './game.js';
 import { trace } from './shooting.js';
-import { applyHit } from './wounds.js';
+import { applyHit, LAST_RUN } from './wounds.js';
 
 /** Model space (pixels) -> world, the inverse of toModel. */
 function toWorld(entity, a, p) {
@@ -62,10 +62,14 @@ function shotTest(dim, animal, calibre, fail, expect) {
       fail.push(`${label}: shot test threw ${e}`);
     }
   }, 2);
+  // Even a kill runs a few steps first.
+  system.runTimeout(() => {
+    if (animal.isValid && getState(animal) === STATE.carcass) fail.push(`${label}: dropped on the spot`);
+  }, 4);
   system.runTimeout(() => {
     if (!animal.isValid) fail.push(`${label}: gone after the shot`);
     else if (getState(animal) !== STATE.carcass) fail.push(`${label}: did not become a carcass`);
-  }, 8);
+  }, 8 + LAST_RUN);
 }
 
 /**
@@ -94,7 +98,7 @@ export function selfTestTargets(message) {
       applyHit(animal, a, { hit: true, zones: [{ zone: 'heart', percent: 100 }], fate: 'kill', grade: 'perfect', bleedSeconds: 0 }, fakePlayer, 1);
       system.runTimeout(() => {
         if (!animal.isValid || getState(animal) !== STATE.carcass) fail.push(`${typeId}: did not become a carcass`);
-      }, 8);
+      }, 8 + LAST_RUN);
       continue;
     }
     const [id, c] = rifles.find(([, r]) => r.energy >= a.game.minEnergy) ?? rifles[rifles.length - 1];
@@ -103,13 +107,13 @@ export function selfTestTargets(message) {
   const registered = [...TARGETS.values()].filter((a) => a.foreign).length;
   system.runTimeout(() => {
     console.log(fail.length ? `[Realistic Hunting] target selftest FAIL (${registered} registered): ${fail.join('; ')}` : `[Realistic Hunting] target selftest PASS (${registered} registered)`);
-  }, 12);
+  }, 12 + LAST_RUN);
 }
 
 /**
  * Used by tools/bds-test.sh. Message = space-separated expected entity ids. Checks that every
  * animal and item exists, that the hit zones classify shots correctly, and that a real traced
- * rifle shot through a summoned deer's heart is reported as a heart hit and drops it.
+ * rifle shot through a summoned deer's heart is reported as a heart hit and brings it down.
  */
 export function selfTest(message) {
   const expected = message.split(/\s+/).filter(Boolean);
@@ -168,5 +172,5 @@ export function selfTest(message) {
   }
   system.runTimeout(() => {
     console.log(fail.length ? `[Realistic Hunting] selftest FAIL: ${fail.join('; ')}` : '[Realistic Hunting] selftest PASS');
-  }, 12);
+  }, 12 + LAST_RUN);
 }

@@ -8,6 +8,7 @@ export const LANGUAGES = {
 };
 
 const en = {
+  allMods: 'All our mods',
   title: 'Realistic Hunting – Minecraft add-on and mod',
   description: (n) => `Realistic hunting for Minecraft Bedrock and Java Edition: ${n} game species that see, hear and smell you, scoped rifles with bullet drop and wind, and an x-ray shot report. Free download.`,
   tagline: (n) => `Stalk ${n} game species that see, hear and smell you. Check the wind, aim through a real scope, and see exactly where your shot hit on the x-ray.`,
@@ -63,6 +64,7 @@ const en = {
 };
 
 const da = {
+  allMods: 'Alle vores mods',
   title: 'Realistisk jagt – tilføjelse og mod til Minecraft',
   description: (n) => `Realistisk jagt til Minecraft Bedrock og Java Edition: ${n} vildtarter, der ser, hører og lugter dig, rifler med kikkertsigte, kuglefald og vind, og en skudrapport med røntgenbillede. Gratis download.`,
   tagline: (n) => `Pürsch på ${n} vildtarter, der ser, hører og lugter dig. Tjek vinden, sigt gennem et rigtigt kikkertsigte, og se præcis, hvor dit skud ramte, på røntgenbilledet.`,

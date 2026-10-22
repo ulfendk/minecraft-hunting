@@ -89,7 +89,9 @@ public final class Shooting {
 		Vec3 stop = eye.add(dir.scale(blockS));
 		Entity best = null;
 		double bestD = Double.MAX_VALUE;
-		for (Entity e : level.getEntities(shooter, new AABB(eye, stop).inflate(1), x -> x instanceof LivingEntity && HuntTarget.of(x) == null && x.isAlive() && x.isPickable())) {
+		// Not what the shooter rides (a boat, a balloon basket).
+		Entity vehicle = shooter == null ? null : shooter.getVehicle();
+		for (Entity e : level.getEntities(shooter, new AABB(eye, stop).inflate(1), x -> x instanceof LivingEntity && x != vehicle && HuntTarget.of(x) == null && x.isAlive() && x.isPickable())) {
 			var clip = e.getBoundingBox().inflate(0.1).clip(eye, stop);
 			if (clip.isPresent() && clip.get().distanceTo(eye) < bestD) {
 				best = e;

@@ -159,7 +159,7 @@ public final class ClientHunting {
 		double best = block.getType() == HitResult.Type.MISS ? Double.MAX_VALUE : block.getLocation().distanceTo(eye);
 		Vec3 end = eye.add(dir.scale(Math.min(320, best)));
 		if (mc.level != null) {
-			for (Entity e : mc.level.getEntities(p, new AABB(eye, end).inflate(1), x -> x.isPickable())) {
+			for (Entity e : mc.level.getEntities(p, new AABB(eye, end).inflate(1), x -> x.isPickable() && x != p.getVehicle())) {
 				var hit = e.getBoundingBox().inflate(0.2).clip(eye, end);
 				if (hit.isPresent()) best = Math.min(best, hit.get().distanceTo(eye));
 			}

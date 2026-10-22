@@ -77,6 +77,11 @@ public final class Senses {
 	private record Movement(double sight, double noise) {}
 
 	private static Movement movement(Player p) {
+		// Riding an aircraft from the Flights mod (the hot-air balloon): still, unless the burner roars.
+		var vehicle = p.getVehicle();
+		if (vehicle != null && "flights".equals(net.minecraft.world.entity.EntityType.getKey(vehicle.getType()).getNamespace())) {
+			return new Movement(0.35, vehicle.entityTags().contains("flights.burner") ? 10 : 0);
+		}
 		Vec3 v = p.getDeltaMovement();
 		double speed = Math.hypot(v.x, v.z);
 		if (p.isSprinting()) return new Movement(1.6, 28);

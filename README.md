@@ -31,6 +31,7 @@ A Minecraft **Bedrock Edition** add-on and **Java Edition** (Fabric) mod for rea
   - The **dive knife** cuts harder under water and field dresses like the hunting knife.
   - A **snorkel** lets you breathe just under the surface. A **dive mask** with a **scuba tank** lets you breathe anywhere under water until the tank (15 minutes) is empty; it fills up again at the surface. **Dive fins** make you swim faster (Java).
 - **Mini submarine:** a one-seat sub for deep water. Move forward to go where you look, jump to rise (on Java the dive key, V, sinks). It runs on a battery that redstone charges; when it is flat, the sub floats up. The pilot breathes and sees clearly, the lamps come on in the deep, and using harpoon bolts fires the launcher in the nose, whose winch reels the fish in. Hit it to break it back into an item, like a boat.
+- **Hunt from the air:** with the [Flights](https://ulfendk.github.io/minecraft-flights/) add-on, anchor a hot-air balloon over the game and shoot from the basket. Your bullets fly through the basket, sneak still works the scope, and the game hears the burner but not the drifting basket.
 - **Tracking:** wounded animals leave a blood trail; the kind of blood tells you what you hit. A shot animal becomes a carcass you field dress with a hunting knife for meat, hide and a trophy scored by size and shot quality.
 - **Hunting dog:** tame a pointer with venison. Blow a dog whistle and it follows the trail to wounded or downed game and fetches shot birds.
 - **Gear:**

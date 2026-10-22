@@ -1,5 +1,10 @@
 # Changelog
 
+## [0.3.4] - 2026-10-22
+Hunting from the air, for Bedrock and Java (Fabric), with the new Flights add-on:
+- Hunt from the basket of a hot-air balloon: your bullets fly through what you are riding instead of stopping at it.
+- Game doesn't take a hunter drifting by in a balloon for a walking one: riding it counts as standing still, but the roar of the burner carries.
+
 ## [0.3.3] - 2026-10-21
 Hit animals, for Bedrock and Java (Fabric):
 - A good hit is enough: shooting an animal that is already bleeding out no longer restarts its clock (before, every follow-up shot kept it alive longer). Now a second good hit brings it down after a few more steps.

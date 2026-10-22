@@ -200,7 +200,10 @@ export function trace(dimension, eye, dir, calibre, w, shooter) {
   // Anything else in the way (vanilla mobs, players).
   try {
     const hits = dimension.getEntitiesFromRay(eye, dir, { maxDistance: blockS, excludeFamilies: ['hunting_game', 'hunting_target', 'inanimate', 'hunting_scare'] });
-    const h = hits.find((x) => x.entity.id !== shooter?.id);
+    // Not the shooter, nor what they ride (a boat, a balloon basket).
+    let vehicle;
+    try { vehicle = shooter?.getComponent('minecraft:riding')?.entityRidingOn?.id; } catch {}
+    const h = hits.find((x) => x.entity.id !== shooter?.id && x.entity.id !== vehicle);
     if (h) return { kind: 'entity', entity: h.entity, distance: h.distance, energy: energyAt(c, h.distance) };
   } catch {}
   return blockS < c.range ? { kind: 'block', distance: blockS } : { kind: 'none' };

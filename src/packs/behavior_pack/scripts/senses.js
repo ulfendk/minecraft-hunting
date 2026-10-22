@@ -91,7 +91,22 @@ export function onTreeStand(player) {
   }
 }
 
+/** Riding an aircraft from the Flights add-on (the hot-air balloon): still, unless the burner roars. */
+function aircraft(player) {
+  try {
+    const e = player.getComponent('minecraft:riding')?.entityRidingOn;
+    if (!e?.typeId.startsWith('flights:')) return undefined;
+    let burner = false;
+    try { burner = !!e.getProperty('flights:burner'); } catch {}
+    return { sight: 0.35, noise: burner ? 10 : 0 };
+  } catch {
+    return undefined;
+  }
+}
+
 function movement(player) {
+  const flying = aircraft(player);
+  if (flying) return flying;
   const v = player.getVelocity();
   const speed = Math.hypot(v.x, v.z);
   if (player.isSprinting) return { sight: 1.6, noise: 28 };
